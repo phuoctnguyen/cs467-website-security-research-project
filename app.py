@@ -8,6 +8,7 @@ app = Flask(__name__,
 
 app.secret_key = '467'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
+SECURE_MODE = False
 
 db = SQLAlchemy(app)
 
@@ -26,14 +27,24 @@ def login():
     if request.method == "POST":
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(name=username).first()
 
-        if user and user.password == password:
-            flash(f"Hello, {username}")
-            return redirect(url_for('dashboard'))
+        if SECURE_MODE:
+            user = User.query.filter_by(name=username, password=password).first()
+            if user:
+                flash(f"Hello, {username} (Secure Mode)")
+                return redirect(url_for('dashboard'))
+            else:
+                flash("Invalid username or password (Secure Mode)")
+                return render_template('login.html')
         else:
-            flash("Invalid username or password")
-            return render_template('login.html')
+            query = text(f"SELECT * FROM user WHERE name = '{username}' AND password = '{password}'")
+            result = db.session.execute(query).fetchone()
+            if result:
+                flash(f"Hello, {username} (Vulnerable Mode)")
+                return redirect(url_for('dashboard'))
+            else:
+                flash("Invalid username or password (Vulnerable Mode)")
+                return render_template('login.html')    
 
     return render_template('login.html')
 
