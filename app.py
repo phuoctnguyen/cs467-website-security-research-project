@@ -1,7 +1,11 @@
 from flask import Flask, request, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, 
+            template_folder='frontend/pages', 
+            static_folder='frontend')
+
 app.secret_key = '467'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 
@@ -21,18 +25,41 @@ class User(db.Model):
 def login():
     if request.method == "POST":
         username = request.form['username']
-
-        # check if username is in database
+        password = request.form['password']
         user = User.query.filter_by(name=username).first()
 
-        if user:
+        if user and user.password == password:
             flash(f"Hello, {username}")
-            return redirect(url_for('login'))
+            return redirect(url_for('dashboard'))
         else:
-            flash(f"User not found")
-            return redirect(url_for('login'))
+            flash("Invalid username or password")
+            return render_template('login.html')
+
     return render_template('login.html')
 
+
+@app.route("/register", methods=["POST", "GET"])
+def register():
+    if request.method == "POST":
+        username = request.form['username']
+        password = request.form['password']
+
+        existing_user = User.query.filter_by(name=username).first()
+        if existing_user:
+            flash("Username already exists")
+            return redirect(url_for('register'))
+
+        new_user = User(name=username, password=password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash("Registration successful! Please log in.")
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+@app.route("/dashboard")
+def dashboard():
+    return render_template('dashboard.html')
 
 if __name__ == '__main__':
     with app.app_context():
