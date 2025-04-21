@@ -1,0 +1,25 @@
+<!--delete-user.html-->
+<!DOCTYPE html>
+<head>
+  <title>Delete User</title>
+</head>
+<body>
+  <p>** This site is for cybersecurity testing purposes. Vulnerable mode is {{ mode }} **</p>
+  <h1>Capstone Bank - Admin Portal</h1>
+  <h2>{{ admin.username }}'s Session: Delete a User</h2>
+  <form method="POST">
+    <label for="delete_userid">Select User to Delete:</label>
+    <select name="delete_userid" id="delete_userid">
+      {% for user in users.values() %}
+        <option value="{{ user.id }}">ID {{ user.id }} - {{ user.username }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" name="delete_user" value="1">Delete User</button>
+  </form>
+  <br>
+  {% if message %}
+    <p>{{ message }}</p>
+  {% endif %}
+  <br>
+  <a href="/admin">Back to Admin Home</a>    
+</body>

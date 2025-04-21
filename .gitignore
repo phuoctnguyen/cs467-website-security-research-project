@@ -1,0 +1,49 @@
+# -------------------------
+# Python / Flask
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+.eggs/
+.env
+.venv/
+venv/
+ENV/
+env.bak/
+env/
+*.sqlite3
+instance/
+
+# Flask specific
+*.db
+*.log
+*.pid
+*.swp
+*.swo
+
+# IDEs & tools
+.vscode/
+.idea/
+.DS_Store
+*.iml
+*.bak
+*.tmp
+
+# Coverage & testing
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+pytest_cache/
+
+# Docker (if used)
+*.container
+*.pid
+*.sock

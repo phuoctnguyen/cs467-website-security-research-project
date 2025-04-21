@@ -1,0 +1,32 @@
+<!-- accounts.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Accounts</title>
+</head>
+<body>
+  <p>** This site is for cybersecurity testing purposes. Vulnerable mode is {{ mode }} **</p>
+  <h1>Capstone Bank - User Portal</h1>
+  <h2>{{ user.username }}'s Session: Accounts</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Account</th>
+        <th>Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>Checking</td>
+          <td>${{ '%.2f'|format(user.checking) }}</td>
+        </tr>
+        <tr>
+          <td>Savings</td>
+          <td>${{ '%.2f'|format(user.savings) }}</td>
+        </tr>
+    </tbody>
+  </table>
+  <br><br>
+  <a href="/">Back to Home</a>
+</body>
+</html>

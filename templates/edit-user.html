@@ -1,0 +1,55 @@
+<!--edit-user.html-->
+<!DOCTYPE html>
+<head>
+  <title>Edit User</title>
+</head>
+<body>
+  <p>** This site is for cybersecurity testing purposes. Vulnerable mode is {{ mode }} **</p>
+  <h1>Capstone Bank - Admin Portal</h1>
+  <h2>{{ admin.username }}'s Session: Edit a User</h2>
+  <form method="POST">
+    <label for="edit_userid">Select User to Edit:</label>
+    <select name="edit_userid" id="edit_userid">
+      {% for user in users.values() %}
+        <option value="{{ user.id }}" 
+          {% if selected_user and user.id == selected_user.id %}
+            selected
+          {% endif %}>ID {{ user.id }} - {{ user.username }}
+        </option>
+      {% endfor %}
+    </select>
+    <button type="submit" name="load_user" value="1">Load User</button>
+  </form>
+  <hr>
+  {% if selected_user %}
+    <h2>Editing: {{ selected_user.username }} (ID: {{ selected_user.id}})</h2>
+    <form method="POST">
+      <input type="hidden" name="userid" value="{{ selected_user.id }}">
+
+      <label>Username:</label><br>
+      <input type="username" name="username" value="{{ selected_user.username }}"><br><br>
+
+      <label>Password:</label><br>
+      <input type="text" name="password" value="{{ selected_user.password }}"><br><br>
+
+      <label>Email:</label><br>
+      <input type="email" name="email" value="{{ selected_user.email }}"><br><br>      
+
+      {% if selected_user.role == 'user' %}
+        <label>Checking:</label><br>
+        <input type="number" name="checking" value="{{ selected_user.checking }}"><br><br>
+
+        <label>Savings:</label><br>
+        <input type="number" name="savings" value="{{ selected_user.savings }}"><br><br>
+      {% endif %}
+
+      <button type="submit" name="update_user" value="1">Update User</button>
+    </form>
+  {% endif %}
+  <br>
+  {% if message %}
+      <p>{{ message }}</p>
+  {% endif %}
+  <br>
+  <a href="/admin">Back to Admin Home</a>    
+</body>
