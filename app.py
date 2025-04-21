@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 import os
+from sqlalchemy import text
 
 app = Flask(__name__, 
             template_folder='frontend/pages', 
