@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Capstone Bank</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -20,7 +20,7 @@
             </div>
             <button type="submit">Login</button>
         </form>
-        <p>Don't have an account? <a href="register.html">Register here</a></p>
+        <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
     </div>
 </body>
 </html>
