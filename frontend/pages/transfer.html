@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Capstone Bank - Transfer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is: <strong>{{ mode }}</strong></p>
+
+    <h1>Capstone Bank - Transfer Funds</h1>
+    <h2>{{ user.name }}'s Session: Make a Transfer</h2>
+
+    <form method="POST" action="/transfer">
+      <label for="fromAccount">Transfer funds from Account:</label>
+      <select name="from_account" id="fromAccount">
+        <option value="checking">Checking</option>
+        <option value="savings">Savings</option>
+      </select>
+      <br><br>
+
+      <label for="toAccount">Move funds to Account:</label>
+      <select name="to_account" id="toAccount">
+        <option value="checking">Checking</option>
+        <option value="savings">Savings</option>
+      </select>
+      <br><br>
+
+      <label for="amount">Amount to transfer:</label>
+      <input type="text" name="amount" id="amount">
+      <br><br>
+
+      <button type="submit">Submit</button>
+    </form>
+
+    {% if message %}
+      <p class="message">{{ message }}</p>
+    {% endif %}
+
+    <br><br>
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+  </div>
+</body>
+</html>
