@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Capstone Bank - Deposit</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is: <strong>{{ mode }}</strong></p>
+
+    <h1>Capstone Bank - Deposit Funds</h1>
+    <h2>{{ user.name }}'s Session: Make a Deposit</h2>
+
+    <form method="POST" action="/deposit">
+      <label for="amount">Amount to deposit:</label>
+      <input type="text" name="amount" id="amount">
+      <br><br>
+
+      <label for="toAccount">Deposit funds to Account:</label>
+      <select name="to_account" id="toAccount">
+        <option value="checking">Checking</option>
+        <option value="savings">Savings</option>
+      </select>
+      <br><br>
+
+      <button type="submit">Submit</button>
+    </form>
+
+    {% if message %}
+      <p class="message">{{ message }}</p>
+    {% endif %}
+
+    <br><br>
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+  </div>
+</body>
+</html>
