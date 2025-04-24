@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Capstone Bank - Accounts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is: <strong>{{ mode }}</strong></p>
+
+    <h1>Capstone Bank - User Portal</h1>
+    <h2>{{ user.name }}'s Session: Accounts</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Checking</td>
+          <td>${{ '%.2f'|format(user.checking) }}</td>
+        </tr>
+        <tr>
+          <td>Savings</td>
+          <td>${{ '%.2f'|format(user.savings) }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <br><br>
+    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+  </div>
+</body>
+</html>
