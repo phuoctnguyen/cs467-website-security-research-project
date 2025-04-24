@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+  <title>Add User</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+	<div class="container">
+		<p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is <strong>{{ mode }}</strong></p>
+		<h1>Capstone Bank - Admin Portal</h1>
+		<h2>{{ admin.name }}'s Session: Add a User</h2>
+		<form action="/add-user" method="POST">
+			<label for="role">Role:</label>
+			<select name="role" id="role">
+				<option value="user">User</option>
+				<option value="admin">Admin</option>
+			</select>
+			<br><br>
+			<label>Username: <input type="text" name="username" required></label>
+			<br><br>
+			<label>Password: <input type="password" name="password" required></label>
+			<br><br>
+			<label>Email: <input type="email" name="email" required></label>
+			<br><br>
+			<label>Initial Balance in Checking: <input type="number" name="checking" step="0.01" value="0.00"></label>
+			<br><br>
+			<label>Initial Balance in Savings: <input type="number" name="savings" step="0.01" value="0.00"></label>
+			<br><br>
+			<button type="submit">Create User</button>
+		</form>
+		<br>
+		{% if message %}
+			<p>{{ message }}</p>
+		{% endif %}
+		<br>
+		<a href="/admin">Back to Admin Home</a>
+	</div>
+</body>
+</html>

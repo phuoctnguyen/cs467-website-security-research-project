@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+  <title>Delete User</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+	<div class="container">
+		<p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is <strong>{{ mode }}</strong></p>
+		<h1>Capstone Bank - Admin Portal</h1>
+		<h2>{{ admin.name }}'s Session: Delete a User</h2>
+		<form method="POST">
+			<label for="delete_userid">Select User to Delete:</label>
+			<select name="delete_userid" id="delete_userid">
+				{% for user in users %}
+					<option value="{{ user._id }}">ID {{ user.id }} - {{ user.name }}</option>
+				{% endfor %}
+			</select>
+			<button type="submit" name="delete_user" value="1">Delete User</button>
+		</form>
+		<br>
+		{% if message %}
+			<p>{{ message }}</p>
+		{% endif %}
+		<br>
+		<a href="/admin">Back to Admin Home</a>
+	</div>
+</body>
+</html>

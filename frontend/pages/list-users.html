@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+  <title>List Users</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+	<div class="container">
+		<p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is <strong>{{ mode }}</strong></p>
+		<h1>Capstone Bank - Admin Portal</h1>
+		<h2>{{ admin.name }}'s Session: List All Users</h2>
+		<table>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Role</th>
+					<th>Username</th>
+					<th>Password</th>
+					<th>Email</th>
+					<th>Checking</th>
+					<th>Savings</th>
+				</tr>
+			</thead>
+			<tbody>
+				{% for user in users %}
+				<tr>
+					<td>{{ user._id }}</td>
+					<td>{{ user.role }}</td>
+					<td>{{ user.name }}</td>
+					<td>{{ user.password }}</td>
+					<td>{{ user.email }}</td>
+					<td>
+						{% if user.checking is defined %}
+							${{ "%.2f"|format(user.checking) }}
+						{% else %}
+							N/A
+						{% endif %}
+					</td>
+					<td>
+						{% if user.savings is defined %}
+							${{ "%.2f"|format(user.savings) }}
+						{% else %}
+							N/A
+						{% endif %}
+					</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+		<br><br>
+		<a href="/admin">Back to Admin Home</a>
+	</div>
+</body>
+</html>

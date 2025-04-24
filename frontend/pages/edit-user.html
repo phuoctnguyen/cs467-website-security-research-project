@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+  <title>Edit User</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+	<div class="container">
+		<p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is <strong>{{ mode }}</strong></p>
+		<h1>Capstone Bank - Admin Portal</h1>
+		<h2>{{ admin.name }}'s Session: Edit a User</h2>
+		<form method="POST">
+			<label for="edit_userid">Select User to Edit:</label>
+			<select name="edit_userid" id="edit_userid">
+				{% for user in users %}
+					{% if selected_user and user._id == selected_user._id %}
+						<option value="{{ user._id }}" selected>ID {{ user._id }} - {{ user.name }}</option>
+					{% else %}
+						<option value="{{ user._id }}">ID {{ user._id }} - {{ user.name }}</option>
+					{% endif %}
+				{% endfor %}
+			</select>
+			<button type="submit" name="load_user" value="1">Load User</button>
+		</form>
+		<hr>
+		{% if selected_user %}
+			<h2>Editing: {{ selected_user.name }} (ID: {{ selected_user._id }})</h2>
+			<form method="POST">
+				<input type="hidden" name="userid" value="{{ selected_user._id }}">
+
+				<label>Username:</label><br>
+				<input type="text" name="name" value="{{ selected_user.name }}"><br><br>
+
+				<label>Password:</label><br>
+				<input type="text" name="password" value="{{ selected_user.password }}"><br><br>
+
+				<label>Email:</label><br>
+				<input type="email" name="email" value="{{ selected_user.email }}"><br><br>
+
+				{% if selected_user.role == 'user' %}
+					<label>Checking:</label><br>
+					<input type="number" name="checking" step="0.01" value="{{ selected_user.checking }}"><br><br>
+
+					<label>Savings:</label><br>
+					<input type="number" name="savings" step="0.01" value="{{ selected_user.savings }}"><br><br>
+				{% endif %}
+
+				<button type="submit" name="update_user" value="1">Update User</button>
+			</form>
+		{% endif %}
+		<br>
+		{% if message %}
+			<p>{{ message }}</p>
+		{% endif %}
+		<br>
+		<a href="/admin">Back to Admin Home</a>
+	</div>
+</body>
+</html>
