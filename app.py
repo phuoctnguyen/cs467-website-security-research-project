@@ -12,17 +12,26 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 
 db = SQLAlchemy(app)
 
+DEFAULT_CHECKING = 1000.00
+DEFAULT_SAVINGS = 5000.00
+
 # user model 
 class User(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
+    role = db.Column("role", db.String(8))
     name = db.Column("name", db.String(100))
+    email = db.Column("email", db.String(320))
     password = db.Column("password", db.String(100))
-    checking = db.Column("checking", db.Float, default=1000.00)
-    savings = db.Column("savings", db.Float, default=5000.00)
+    checking = db.Column("checking", db.Float, default=DEFAULT_CHECKING)
+    savings = db.Column("savings", db.Float, default=DEFAULT_SAVINGS)
 
-    def __init__(self, name, password):
+    def __init__(self, role, name, password, email, checking=DEFAULT_CHECKING, savings=DEFAULT_SAVINGS):
+        self.role = role
         self.name = name
+        self.email = email
         self.password = password
+        self.checking = checking
+        self.savings = savings
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
@@ -34,13 +43,14 @@ def login():
         if user and user.password == password:
             session['username'] = user.name
             flash(f"Hello, {username}")
+            if user.role == 'admin':
+                return redirect(url_for('admin_dashboard'))
             return redirect(url_for('dashboard'))
         else:
             flash("Invalid username or password")
             return render_template('login.html')
 
     return render_template('login.html')
-
 
 @app.route("/register", methods=["POST", "GET"])
 def register():
@@ -53,7 +63,7 @@ def register():
             flash("Username already exists")
             return redirect(url_for('register'))
 
-        new_user = User(name=username, password=password)
+        new_user = User(role='user', name=username, password=password, email=None)
         db.session.add(new_user)
         db.session.commit()
         flash("Registration successful! Please log in.")
@@ -179,6 +189,144 @@ def deposit():
 
     return render_template("deposit.html", user=user, mode=mode, message=message)
 
+@app.route("/admin")
+def admin_dashboard():
+    adminname = session.get('username')
+    if not adminname:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    mode = "vulnerable"
+
+    return render_template('admin-dashboard.html', mode=mode, admin=admin)
+
+@app.route('/list-users')
+def list_users():
+    adminname = session.get('username')
+    if not adminname:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    mode = "vulnerable"
+    users = User.query.filter_by(role='user')
+
+    return render_template('list-users.html', mode=mode, admin=admin, users=users)
+
+@app.route('/add-user', methods=['GET', 'POST'])
+def add_user():
+    adminname = session.get('username')
+    if not adminname:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    mode = "vulnerable"
+
+    message = ""
+    if request.method == 'POST':
+        role = request.form.get('role')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        email = request.form.get('email')
+        checking = request.form.get('checking', 0)
+        savings = request.form.get('savings', 0)
+        if not (role and username and password and email):
+            message = "Invalid request. Required info is missing."
+        else:
+            try:
+                added_user = User(role='user', name=username, password=password,
+                                  email=email, checking=float(checking), savings=float(savings))
+                db.session.add(added_user)
+                db.session.commit()
+
+                added_user_id = added_user._id
+                if added_user_id is not None:
+                    message = f"New user with ID: {added_user_id} added!"
+                else:
+                    message = "Failed to add user."
+            except Exception as e:
+                message = f"Error adding user: {str(e)}"
+
+    return render_template('add-user.html', mode=mode, admin=admin, message=message)
+
+@app.route('/edit-user', methods=['GET', 'POST'])
+def edit_user():
+    adminname = session.get('username')
+    if not adminname:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    mode = "vulnerable"
+
+    users = User.query.filter_by(role='user').all()
+    selected_user = None
+    message = ""
+
+    if request.method == 'POST':
+        # if select user form submitted
+        if 'load_user' in request.form:
+            user_id = int(request.form.get('edit_userid'))
+            selected_user = User.query.filter_by(_id=user_id).first()
+
+        # if update form submitted
+        elif 'update_user' in request.form:
+            user_id = request.form.get('userid')
+            user = User.query.filter_by(_id=user_id).first()
+            if user:
+                # update db
+                try:
+                    user.name = request.form.get('name')
+                    user.email = request.form.get('email')
+                    user.password = request.form.get('password')
+
+                    if user.role == "user":
+                        checking = request.form.get('checking')
+                        savings = request.form.get('savings')
+                        user.checking = float(checking)
+                        user.savings = float(savings)
+
+                    # db.session.add(user)
+                    db.session.commit()
+
+                    message = f"User with ID {user._id} and username {user.name} updated."
+                    selected_user = user
+                except Exception as e:
+                    message = f"Error updating user: {str(e)}"
+
+    return render_template('edit-user.html', mode=mode, admin=admin, users=users,
+                           selected_user=selected_user, message=message)
+
+@app.route('/delete-user', methods=['GET', 'POST'])
+def delete_user():
+    adminname = session.get('username')
+    if not adminname:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    mode = "vulnerable"
+
+    users = User.query.filter_by(role='user').all()
+    message = ""
+    if request.method == 'POST':
+        try:
+            delete_userid = int(request.form.get('delete_userid'))
+            user_to_delete = User.query.filter_by(_id=delete_userid).first()
+            delete_username = user_to_delete.name
+
+            db.session.delete(user_to_delete)
+            db.session.commit()
+            message = f"User with ID {delete_userid} and username {delete_username} deleted."
+
+        except Exception as e:
+            message = f"Error deleting the user: {str(e)}"
+
+    return render_template('delete-user.html', mode=mode, admin=admin,
+                           users=users, message=message)
+
 @app.route("/logout")
 def logout():
     session.pop('username', None)
@@ -187,10 +335,16 @@ def logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        # Add a test user 
+        # Add a test non-admin user
         if not User.query.filter_by(name='tester').first():
-            new_user = User(name='tester', password='abc123')
+            new_user = User(role='user', name='tester', password='abc123', email='tester@capstone.com')
             db.session.add(new_user)
             db.session.commit()
+        # Add a test admin
+        if not User.query.filter_by(name='admin-tester').first():
+            new_user = User(role='admin', name='admin-tester', password='abc123', email='admin@capstone.com')
+            db.session.add(new_user)
+            db.session.commit()
+
     app.run(debug=True)
 
