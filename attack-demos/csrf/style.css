@@ -1,0 +1,51 @@
+/* General layout */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f0f2f5;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+/* Container */
+.container {
+  background-color: #ffffff;
+  margin: 2rem;
+  padding: 2rem 3rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  max-width: 600px;
+  width: 100%;
+}
+
+/* Headings */
+h1, h2 {
+  text-align: center;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+/* Paragraphs */
+p {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .container {
+      margin: 1rem;
+      padding: 1.5rem;
+  }
+
+  h1, h2 {
+      font-size: 1.3rem;
+  }
+
+  input, select, button {
+      font-size: 0.95rem;
+  }
+}
