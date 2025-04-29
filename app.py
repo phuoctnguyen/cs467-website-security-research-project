@@ -1,7 +1,5 @@
-from flask import Flask, request, render_template, redirect, url_for, flash, session
+from flask import flash, Flask, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask import session
-import os
 from sqlalchemy import text
 
 app = Flask(__name__, 
@@ -33,6 +31,9 @@ class User(db.Model):
         self.password = password
         self.checking = checking
         self.savings = savings
+
+    def get_id(self):
+        return self._id
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
@@ -134,7 +135,7 @@ def transfer():
         to_account = request.form.get('to_account')
         amount_str = request.form.get('amount')
 
-        # Validate input
+        # validate input
         if not from_account or not to_account or not amount_str:
             message = "All fields are required."
         elif from_account == to_account:
@@ -254,7 +255,7 @@ def add_user():
                 db.session.add(added_user)
                 db.session.commit()
 
-                added_user_id = added_user._id
+                added_user_id = added_user.get_id()
                 if added_user_id is not None:
                     message = f"New user with ID: {added_user_id} added!"
                 else:
@@ -301,10 +302,9 @@ def edit_user():
                         user.checking = float(checking)
                         user.savings = float(savings)
 
-                    # db.session.add(user)
                     db.session.commit()
 
-                    message = f"User with ID {user._id} and username {user.name} updated."
+                    message = f"User with ID {user.get_id()} and username {user.name} updated."
                     selected_user = user
                 except Exception as e:
                     message = f"Error updating user: {str(e)}"
@@ -350,13 +350,13 @@ if __name__ == '__main__':
         db.create_all()
         # Add a test non-admin user
         if not User.query.filter_by(name='tester').first():
-            new_user = User(role='user', name='tester', password='abc123', email='tester@capstone.com')
-            db.session.add(new_user)
+            new_nonadmin_user = User(role='user', name='tester', password='abc123', email='tester@capstone.com')
+            db.session.add(new_nonadmin_user)
             db.session.commit()
         # Add a test admin
         if not User.query.filter_by(name='admin-tester').first():
-            new_user = User(role='admin', name='admin-tester', password='abc123', email='admin@capstone.com')
-            db.session.add(new_user)
+            new_admin_user = User(role='admin', name='admin-tester', password='abc123', email='admin@capstone.com')
+            db.session.add(new_admin_user)
             db.session.commit()
 
     app.run(debug=True)
