@@ -1,3 +1,4 @@
+from tkinter import CURRENT
 from flask import flash, Flask, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -57,6 +58,7 @@ def login():
 
         if user:
             session['username'] = user.name
+            session['secure_mode'] = secure_mode
             flash(f"Hello, {username} ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
             if user.role == 'admin':
                 return redirect(url_for('admin_dashboard'))
@@ -89,12 +91,13 @@ def register():
 @app.route("/dashboard")
 def dashboard():
     username = session.get('username')
+    mode = session.get('secure_mode')
     if not username:
         flash("Please log in first.")
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    mode = "vulnerable"
+    #mode = "vulnerable"
 
     return render_template("dashboard.html", user=user, mode=mode)
 
@@ -352,15 +355,17 @@ def logout():
 # generate json with list of users and user data
 @app.route("/users.js")
 def generate_user_list():
-    mode = session.get('secure_mode')
+    secure_mode = session.get('secure_mode')
+    username = session.get('username')
 
     user = User.query.all()
+    current_user = User.query.filter_by(name=username).first()
     
-    if mode == "secure":
+    if secure_mode:
         user_data = [
             {
-                "id": user._id,
-                "name": user.name,
+                "id": current_user._id,
+                "name": current_user.name,
             }
         ]
     else: 
