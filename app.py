@@ -2,7 +2,8 @@ from flask import flash, Flask, redirect, render_template, request, session, url
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
-from backend.forms import TransferForm
+from backend.forms import TransferForm      # CSRF Protection
+from backend.services import execute_transfer
 
 app = Flask(__name__,
             template_folder='frontend/pages',
@@ -12,7 +13,7 @@ app.secret_key = '467'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 db = SQLAlchemy(app)
 
-app.config['WTF_CSRF_CHECK_DEFAULT'] = False    # Disable default protection on all endpoints
+app.config['WTF_CSRF_CHECK_DEFAULT'] = False    # Disable default CSRF protection on all endpoints
 csrf = CSRFProtect(app)     # Enable CSRF protection
 
 DEFAULT_CHECKING = 1000.00
@@ -138,7 +139,7 @@ def transfer():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    user.secure = False  # set secure mode
+    user.secure = True  # set secure mode
     mode = "secure" if user.secure else "vulnerable"
     message = ""
 
@@ -151,35 +152,12 @@ def transfer():
             to_account = transfer_form.to_account.data
             amount_str = transfer_form.amount.data
 
-            # validate & process input
-            if not from_account or not to_account or not amount_str:
-                message = "All fields are required."
-            elif from_account == to_account:
-                message = "You must transfer between two different accounts."
-            else:
-                try:
-                    amount = float(amount_str)
-                    if amount <= 0:
-                        message = "Transfer amount must be greater than zero."
-                    else:
-                        if from_account == "checking" and user.checking >= amount:
-                            user.checking -= amount
-                            user.savings += amount
-                            message = f"Transferred ${amount:.2f} from checking to savings."
-                        elif from_account == "savings" and user.savings >= amount:
-                            user.savings -= amount
-                            user.checking += amount
-                            message = f"Transferred ${amount:.2f} from savings to checking."
-                        else:
-                            message = "Insufficient funds in selected account."
-
-                        db.session.commit()
-
-                except ValueError:
-                    message = "Invalid amount. Please enter a number."
+            transfer_ok, message = execute_transfer(user, from_account, to_account, amount_str)
+            if transfer_ok:
+                db.session.commit()  # update user
 
         elif request.method == "POST":
-            pass        # todo: log "Likely CSRF Attack intercepted."
+            print("Likely CSRF Attack intercepted.")
 
         # only send FlaskForm if in secure mode
         return render_template("transfer.html", user=user, mode=mode, message=message, transfer_form=transfer_form)
@@ -190,32 +168,9 @@ def transfer():
         to_account = request.form.get('to_account')
         amount_str = request.form.get('amount')
 
-        # validate & process input
-        if not from_account or not to_account or not amount_str:
-            message = "All fields are required."
-        elif from_account == to_account:
-            message = "You must transfer between two different accounts."
-        else:
-            try:
-                amount = float(amount_str)
-                if amount <= 0:
-                    message = "Transfer amount must be greater than zero."
-                else:
-                    if from_account == "checking" and user.checking >= amount:
-                        user.checking -= amount
-                        user.savings += amount
-                        message = f"Transferred ${amount:.2f} from checking to savings."
-                    elif from_account == "savings" and user.savings >= amount:
-                        user.savings -= amount
-                        user.checking += amount
-                        message = f"Transferred ${amount:.2f} from savings to checking."
-                    else:
-                        message = "Insufficient funds in selected account."
-
-                    db.session.commit()
-
-            except ValueError:
-                message = "Invalid amount. Please enter a number."
+        transfer_ok, message = execute_transfer(user, from_account, to_account, amount_str)
+        if transfer_ok:
+            db.session.commit()     # update user
 
     return render_template("transfer.html", user=user, mode=mode, message=message)
 
