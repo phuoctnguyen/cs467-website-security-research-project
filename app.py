@@ -1,20 +1,25 @@
 from flask import flash, Flask, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+from flask_wtf import CSRFProtect      # CSRF Protection
+from backend.forms import TransferForm
 
-app = Flask(__name__, 
-            template_folder='frontend/pages', 
+app = Flask(__name__,
+            template_folder='frontend/pages',
             static_folder='frontend')
-
 app.secret_key = '467'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 db = SQLAlchemy(app)
+
+app.config['WTF_CSRF_CHECK_DEFAULT'] = False    # Disable default protection on all endpoints
+csrf = CSRFProtect(app)     # Enable CSRF protection
 
 DEFAULT_CHECKING = 1000.00
 DEFAULT_SAVINGS = 5000.00
 
-# user model 
+
+# User model
 class User(db.Model):
     _id = db.Column("id", db.Integer, primary_key=True)
     role = db.Column("role", db.String(8))
@@ -34,6 +39,7 @@ class User(db.Model):
 
     def get_id(self):
         return self._id
+
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
@@ -66,6 +72,7 @@ def login():
 
     return render_template('login.html')
 
+
 @app.route("/register", methods=["POST", "GET"])
 def register():
     if request.method == "POST":
@@ -85,6 +92,7 @@ def register():
 
     return render_template('register.html')
 
+
 @app.route("/dashboard")
 def dashboard():
     username = session.get('username')
@@ -97,6 +105,7 @@ def dashboard():
 
     return render_template("dashboard.html", user=user, mode=mode)
 
+
 @app.route("/accounts")
 def accounts():
     username = session.get('username')
@@ -107,6 +116,7 @@ def accounts():
     user = User.query.filter_by(name=username).first()
     mode = "vulnerable"
     return render_template("accounts.html", user=user, mode=mode)
+
 
 @app.route("/profile")
 def profile():
@@ -119,6 +129,7 @@ def profile():
     mode = "vulnerable"
     return render_template("profile.html", user=user, mode=mode)
 
+
 @app.route("/transfer", methods=["GET", "POST"])
 def transfer():
     username = session.get('username')
@@ -127,15 +138,59 @@ def transfer():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    mode = "vulnerable"
+    user.secure = False  # set secure mode
+    mode = "secure" if user.secure else "vulnerable"
     message = ""
 
+    if user.secure:     # secure mode
+        csrf.protect()
+        transfer_form = TransferForm()
+
+        if transfer_form.validate_on_submit():  # POST request
+            from_account = transfer_form.from_account.data
+            to_account = transfer_form.to_account.data
+            amount_str = transfer_form.amount.data
+
+            # validate & process input
+            if not from_account or not to_account or not amount_str:
+                message = "All fields are required."
+            elif from_account == to_account:
+                message = "You must transfer between two different accounts."
+            else:
+                try:
+                    amount = float(amount_str)
+                    if amount <= 0:
+                        message = "Transfer amount must be greater than zero."
+                    else:
+                        if from_account == "checking" and user.checking >= amount:
+                            user.checking -= amount
+                            user.savings += amount
+                            message = f"Transferred ${amount:.2f} from checking to savings."
+                        elif from_account == "savings" and user.savings >= amount:
+                            user.savings -= amount
+                            user.checking += amount
+                            message = f"Transferred ${amount:.2f} from savings to checking."
+                        else:
+                            message = "Insufficient funds in selected account."
+
+                        db.session.commit()
+
+                except ValueError:
+                    message = "Invalid amount. Please enter a number."
+
+        elif request.method == "POST":
+            pass        # todo: log "Likely CSRF Attack intercepted."
+
+        # only send FlaskForm if in secure mode
+        return render_template("transfer.html", user=user, mode=mode, message=message, transfer_form=transfer_form)
+
+    # vulnerable mode
     if request.method == "POST":
         from_account = request.form.get('from_account')
         to_account = request.form.get('to_account')
         amount_str = request.form.get('amount')
 
-        # validate input
+        # validate & process input
         if not from_account or not to_account or not amount_str:
             message = "All fields are required."
         elif from_account == to_account:
@@ -156,13 +211,14 @@ def transfer():
                         message = f"Transferred ${amount:.2f} from savings to checking."
                     else:
                         message = "Insufficient funds in selected account."
-                    
+
                     db.session.commit()
 
             except ValueError:
                 message = "Invalid amount. Please enter a number."
 
     return render_template("transfer.html", user=user, mode=mode, message=message)
+
 
 @app.route("/deposit", methods=["GET", "POST"])
 def deposit():
@@ -203,6 +259,7 @@ def deposit():
 
     return render_template("deposit.html", user=user, mode=mode, message=message)
 
+
 @app.route("/admin")
 def admin_dashboard():
     adminname = session.get('username')
@@ -214,6 +271,7 @@ def admin_dashboard():
     mode = "vulnerable"
 
     return render_template('admin-dashboard.html', mode=mode, admin=admin)
+
 
 @app.route('/list-users')
 def list_users():
@@ -227,6 +285,7 @@ def list_users():
     users = User.query.filter_by(role='user')
 
     return render_template('list-users.html', mode=mode, admin=admin, users=users)
+
 
 @app.route('/add-user', methods=['GET', 'POST'])
 def add_user():
@@ -264,6 +323,7 @@ def add_user():
                 message = f"Error adding user: {str(e)}"
 
     return render_template('add-user.html', mode=mode, admin=admin, message=message)
+
 
 @app.route('/edit-user', methods=['GET', 'POST'])
 def edit_user():
@@ -312,6 +372,7 @@ def edit_user():
     return render_template('edit-user.html', mode=mode, admin=admin, users=users,
                            selected_user=selected_user, message=message)
 
+
 @app.route('/delete-user', methods=['GET', 'POST'])
 def delete_user():
     adminname = session.get('username')
@@ -340,10 +401,12 @@ def delete_user():
     return render_template('delete-user.html', mode=mode, admin=admin,
                            users=users, message=message)
 
+
 @app.route("/logout")
 def logout():
     session.pop('username', None)
     return render_template("logout.html")
+
 
 if __name__ == '__main__':
     with app.app_context():
@@ -360,4 +423,3 @@ if __name__ == '__main__':
             db.session.commit()
 
     app.run(debug=True)
-
