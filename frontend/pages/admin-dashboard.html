@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+  <title>Capstone Bank - Admin Dashboard</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+	<div class="container">
+		<p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is <strong>{{ mode }}</strong></p>
+
+		<h1>Capstone Bank - Admin Portal</h1>
+		<h2>Welcome, {{ admin.name }}!</h2>
+
+		<nav>
+			<ul class="nav-links">
+				<li><a href="/list-users">List Users</a></li>
+				<li><a href="/add-user">Add a User</a></li>
+				<li><a href="/edit-user">Edit a User</a></li>
+				<li><a href="/delete-user">Delete a User</a></li>
+				<li><a href="/logout">Logout</a></li>
+			</ul>
+		</nav>
+	</div>
+</body>
+</html>
