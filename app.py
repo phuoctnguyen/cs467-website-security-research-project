@@ -1,6 +1,7 @@
 from flask import flash, Flask, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+import json
 
 app = Flask(__name__, 
             template_folder='frontend/pages', 
@@ -344,6 +345,42 @@ def delete_user():
 def logout():
     session.pop('username', None)
     return render_template("logout.html")
+
+
+# Utility functions
+
+# generate json with list of users and user data
+@app.route("/users.js")
+def generate_user_list():
+    mode = session.get('secure_mode')
+
+    user = User.query.all()
+    
+    if mode == "secure":
+        user_data = [
+            {
+                "id": user._id,
+                "name": user.name,
+            }
+        ]
+    else: 
+        user_data = [
+            {
+                "id": user._id,
+                "role": user.role,
+                "name": user.name,
+                "email": user.email,
+                "password": user.password,
+                "checking": user.checking,
+                "savings": user.savings
+            }
+            for user in user
+        ]
+
+    json_user_data = f"const exposedUserData = {json.dumps(user_data)};\n"
+
+    return json_user_data, 200, {"Content-Type": "application/javascript"}
+
 
 if __name__ == '__main__':
     with app.app_context():
