@@ -5,6 +5,7 @@
 import subprocess
 import sys
 
+
 def start_http_server(port=8080):
     """Start a simple HTTP server using Python's built-in module as a subprocess"""
     print(f"Starting server at http://localhost:{port}/")
@@ -13,6 +14,7 @@ def start_http_server(port=8080):
         subprocess.run([sys.executable, "-m", "http.server", str(port)])
     except KeyboardInterrupt:
         print("\nServer stopped.")
+
 
 if __name__ == "__main__":
     start_http_server()
