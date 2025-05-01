@@ -1,7 +1,8 @@
 # The malicious file promotion.html hosting the CSRF attack must be
 # served from a local server. If served directly from the file
 # (using "file:///Users/..."), the browser will block the POST request.
-# Code below provided by Claude 3.7 Sonnet. Chat: https://claude.ai/share/121e97a8-60e6-4a5b-b292-aa612144e379
+# Code below provided by Claude 3.7 Sonnet.
+# Chat: https://claude.ai/share/121e97a8-60e6-4a5b-b292-aa612144e379
 import subprocess
 import sys
 

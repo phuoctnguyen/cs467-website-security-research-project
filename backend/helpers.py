@@ -1,12 +1,24 @@
 def execute_transfer(user, from_acc, to_acc, amount_str):
-    """ Helper function to app.py's transfer(). """
+    """
+        Helper function to app.py's transfer().
+        Transfers funds between a user's checking and savings accounts.
 
-    # validate & process input
+        :param user: User object with 'checking' and 'savings' attributes.
+        :param from_acc: Source account name ('checking' or 'savings').
+        :param to_acc: Destination account name ('checking' or 'savings').
+        :param amount_str: Transfer amount as a string.
+        :return: Tuple of (success: bool, message: str).
+            The boolean True indicates changes in the User object, so,
+            outside function knows that the database should be updated.
+        """
+
+    # validate input
     if not from_acc or not to_acc or not amount_str:
         return False, "All fields are required."
     if from_acc == to_acc:
         return False, "You must transfer between two different accounts."
     try:
+        # process input
         amount = float(amount_str)
         if amount <= 0:
             return False, "Transfer amount must be greater than zero."

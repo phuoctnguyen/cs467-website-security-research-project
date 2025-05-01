@@ -1,12 +1,10 @@
-from flask_wtf import FlaskForm     # , CSRFProtect
+# FlaskForm classes
+# code adapted from:
+# https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-iii-web-forms
+
+from flask_wtf import FlaskForm
 from wtforms import SelectField, StringField, SubmitField
 from wtforms.validators import DataRequired
-
-# class LoginForm(FlaskForm):
-#     username = StringField('Username', validators=[DataRequired()])
-#     password = StringField('Password', validators=[DataRequired()])
-#     secure = StringField('Secure', validators=[DataRequired()])
-#     submit = SubmitField('Submit')
 
 
 class TransferForm(FlaskForm):

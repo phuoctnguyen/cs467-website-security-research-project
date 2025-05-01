@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
 from backend.forms import TransferForm      # CSRF Protection
-from backend.services import execute_transfer
+from backend.helpers import execute_transfer
 
 app = Flask(__name__,
             template_folder='frontend/pages',
@@ -13,8 +13,12 @@ app.secret_key = '467'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 db = SQLAlchemy(app)
 
-app.config['WTF_CSRF_CHECK_DEFAULT'] = False    # Disable default CSRF protection on all endpoints
-csrf = CSRFProtect(app)     # Enable CSRF protection
+# WTF_CSRF-related logic & code adapted from:
+# https://flask-wtf.readthedocs.io/en/0.15.x/csrf/#exclude-views-from-protection
+# disable default CSRF protection on all endpoints; activate by endpoint when needed; better for testing.
+app.config['WTF_CSRF_CHECK_DEFAULT'] = False
+
+csrf = CSRFProtect(app)     # enable CSRF protection
 
 DEFAULT_CHECKING = 1000.00
 DEFAULT_SAVINGS = 5000.00
@@ -139,12 +143,12 @@ def transfer():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    user.secure = True  # set secure mode
-    mode = "secure" if user.secure else "vulnerable"
+    user.secure = True                                  # SET VULNERABILITY MODE HERE
+    mode = "secure" if user.secure else "vulnerable"    # to be displayed in form
     message = ""
 
     if user.secure:     # secure mode
-        csrf.protect()
+        csrf.protect()  # protect this endpoint only
         transfer_form = TransferForm()
 
         if transfer_form.validate_on_submit():  # POST request
@@ -152,11 +156,11 @@ def transfer():
             to_account = transfer_form.to_account.data
             amount_str = transfer_form.amount.data
 
-            transfer_ok, message = execute_transfer(user, from_account, to_account, amount_str)
-            if transfer_ok:
+            transfer_success, message = execute_transfer(user, from_account, to_account, amount_str)
+            if transfer_success:
                 db.session.commit()  # update user
 
-        elif request.method == "POST":
+        elif request.method == "POST":  # and form didn't validate
             print("Likely CSRF Attack intercepted.")
 
         # only send FlaskForm if in secure mode
@@ -168,8 +172,8 @@ def transfer():
         to_account = request.form.get('to_account')
         amount_str = request.form.get('amount')
 
-        transfer_ok, message = execute_transfer(user, from_account, to_account, amount_str)
-        if transfer_ok:
+        transfer_success, message = execute_transfer(user, from_account, to_account, amount_str)
+        if transfer_success:
             db.session.commit()     # update user
 
     return render_template("transfer.html", user=user, mode=mode, message=message)
