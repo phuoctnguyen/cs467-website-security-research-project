@@ -13,26 +13,41 @@
     <h1>Capstone Bank - Transfer Funds</h1>
     <h2>{{ user.name }}'s Session: Make a Transfer</h2>
 
-    <form method="POST" action="/transfer">
-      <label for="fromAccount">Transfer funds from Account:</label>
-      <select name="from_account" id="fromAccount">
-        <option value="checking">Checking</option>
-        <option value="savings">Savings</option>
-      </select>
+		{% if user.secure %}
+			<!-- secure mode (uses FlaskForm) -->
+			<!-- code adapted from:
+				https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-iii-web-forms -->
+			<form method="POST" action="/transfer">
+				{{ transfer_form.hidden_tag() }}	<!-- embed CSRF token in form -->
+				{{ transfer_form.from_account.label }}{{ transfer_form.from_account() }}
+				{{ transfer_form.to_account.label }}{{ transfer_form.to_account() }}
+				{{ transfer_form.amount.label }}{{ transfer_form.amount() }}
+				{{ transfer_form.submit() }}
+			</form>
 
-      <label for="toAccount">Move funds to Account:</label>
-      <select name="to_account" id="toAccount">
-        <option value="checking">Checking</option>
-        <option value="savings">Savings</option>
-      </select>
+		{% else %}
+			<!-- vulnerable mode (uses HTML form)-->
+			<form method="POST" action="/transfer">
+      	<label for="from_account">Transfer funds from Account:</label>
+      	<select name="from_account" id="from_account">
+        	<option value="checking">Checking</option>
+        	<option value="savings">Savings</option>
+      	</select>
 
-      <label for="amount">Amount to transfer:</label>
-      <input type="text" name="amount" id="amount">
+      	<label for="to_account">Move funds to Account:</label>
+      	<select name="to_account" id="to_account">
+        	<option value="checking">Checking</option>
+        	<option value="savings">Savings</option>
+      	</select>
 
-      <button type="submit">Submit</button>
-    </form>
+				<label for="amount_">Amount to transfer:</label>
+				<input type="text" name="amount" id="amount_">
 
-    {% if message %}
+      	<button type="submit">Submit</button>
+    	</form>
+		{% endif %}
+
+		{% if message %}
       <p class="message">{{ message }}</p>
     {% endif %}
 

