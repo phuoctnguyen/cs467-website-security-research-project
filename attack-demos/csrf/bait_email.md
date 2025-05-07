@@ -1,8 +1,4 @@
 *** The following is a sample email the user might receive. ***
-* Before clicking the link, start the local server that serves the malicious promotion.html:
-	1.	Open a terminal and navigate to the attack-demos/csrf/ directory.
-	2.	Run the command: python csrf_server.py or python3 csrf_server.py (depending on your setup).
-	3.	Once the server is running, click the link to execute the CSRF attack.
 
 To: gullible.victim467@capstone.com
 From: promotions@capstonedbank.com
