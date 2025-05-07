@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>/etc/passwd View</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: monospace;
+        }
+        th, td {
+            padding: 6px;
+            border: 1px solid #ccc;
+        }
+        th {
+            background: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2>Injected System User Data Detected</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>UID</th>
+                <th>GID</th>
+                <th>Description</th>
+                <th>Home Directory</th>
+                <th>Shell</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.username }}</td>
+                <td>{{ row.uid }}</td>
+                <td>{{ row.gid }}</td>
+                <td>{{ row.description }}</td>
+                <td>{{ row.home }}</td>
+                <td>{{ row.shell }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

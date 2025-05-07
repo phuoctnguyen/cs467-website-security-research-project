@@ -4,6 +4,8 @@ from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
 from backend.forms import TransferForm      # CSRF Protection
 from backend.helpers import execute_transfer
+from lxml import etree
+import os
 
 app = Flask(__name__,
             template_folder='frontend/pages',
@@ -67,6 +69,7 @@ def login():
 
         if user:
             session['username'] = user.name
+            session['secure_mode'] = secure_mode
             flash(f"Hello, {username} ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
             if user.role == 'admin':
                 return redirect(url_for('admin_dashboard'))
@@ -106,8 +109,8 @@ def dashboard():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    mode = "vulnerable"
-
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
     return render_template("dashboard.html", user=user, mode=mode)
 
 
@@ -119,7 +122,9 @@ def accounts():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
     return render_template("accounts.html", user=user, mode=mode)
 
 
@@ -131,7 +136,9 @@ def profile():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
     return render_template("profile.html", user=user, mode=mode)
 
 
@@ -143,11 +150,11 @@ def transfer():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    user.secure = True                                  # SET VULNERABILITY MODE HERE
-    mode = "secure" if user.secure else "vulnerable"    # to be displayed in form
+    secure_mode = session.get('secure_mode', False)     # SET VULNERABILITY MODE HERE
+    mode = "secure" if secure_mode else "vulnerable"    # to be displayed in form
     message = ""
 
-    if user.secure:     # secure mode
+    if secure_mode:     # secure mode
         csrf.protect()  # protect this endpoint only
         transfer_form = TransferForm()
 
@@ -187,7 +194,8 @@ def deposit():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
     message = ""
 
     if request.method == "POST":
@@ -227,7 +235,8 @@ def admin_dashboard():
         return redirect(url_for('login'))
 
     admin = User.query.filter_by(name=adminname).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
 
     return render_template('admin-dashboard.html', mode=mode, admin=admin)
 
@@ -240,7 +249,9 @@ def list_users():
         return redirect(url_for('login'))
 
     admin = User.query.filter_by(name=adminname).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
     users = User.query.filter_by(role='user')
 
     return render_template('list-users.html', mode=mode, admin=admin, users=users)
@@ -254,7 +265,8 @@ def add_user():
         return redirect(url_for('login'))
 
     admin = User.query.filter_by(name=adminname).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
 
     message = ""
     if request.method == 'POST':
@@ -292,7 +304,9 @@ def edit_user():
         return redirect(url_for('login'))
 
     admin = User.query.filter_by(name=adminname).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
 
     users = User.query.filter_by(role='user').all()
     selected_user = None
@@ -340,7 +354,8 @@ def delete_user():
         return redirect(url_for('login'))
 
     admin = User.query.filter_by(name=adminname).first()
-    mode = "vulnerable"
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
 
     users = User.query.filter_by(role='user').all()
     message = ""
@@ -359,6 +374,66 @@ def delete_user():
 
     return render_template('delete-user.html', mode=mode, admin=admin,
                            users=users, message=message)
+
+@app.route("/import-data", methods=["GET", "POST"])
+def import_data():
+    username = session.get('username')
+    if not username:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(name=username).first()
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
+    message = ""
+
+    if request.method == "POST":
+        uploaded_file = request.files.get("xmlfile")
+        if not uploaded_file or uploaded_file.filename == "":
+            message = "No file selected."
+        else:
+            try:
+                xml_content = uploaded_file.read()
+
+                parser = etree.XMLParser(resolve_entities=not secure_mode)
+                root = etree.fromstring(xml_content, parser)
+
+                checking_str = root.findtext("checking", default="0")
+                savings_elem = root.find("savings")
+                savings_str = savings_elem.text if savings_elem is not None else "0"
+
+                if not secure_mode and savings_str and "##" in savings_str:
+                    lines = savings_str.strip().split("\n")
+                    parsed_rows = []
+                    for line in lines:
+                        if not line.strip().startswith("#") and ":" in line:
+                            parts = line.split(":")
+                            if len(parts) >= 7:
+                                parsed_rows.append({
+                                    "username": parts[0],
+                                    "uid": parts[2],
+                                    "gid": parts[3],
+                                    "description": parts[4],
+                                    "home": parts[5],
+                                    "shell": parts[6],
+                                })
+                    return render_template("passwd_view.html", rows=parsed_rows)
+
+                try:
+                    user.savings = float(savings_str)
+                except ValueError:
+                    message += f"Non-numeric savings value detected: {savings_str}\n"
+
+                db.session.commit()
+
+                if not message:
+                    message = f"Imported balances: Checking = ${user.checking:.2f}, Savings = ${user.savings:.2f}"
+
+            except Exception as e:
+                message = f"Error parsing XML: {str(e)}"
+
+    return render_template("import-data.html", mode=mode, message=message)
 
 
 @app.route("/logout")

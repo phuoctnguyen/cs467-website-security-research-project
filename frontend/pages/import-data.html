@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Import Account Data</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <p class="banner">This site is for cybersecurity testing purposes. Vulnerable mode is: <strong>{{ mode }}</strong></p>
+
+    <h1>Import Account Data</h1>
+    <p>Upload an XML file from another bank to import your checking and savings balances.</p>
+
+    <form action="/import-data" method="POST" enctype="multipart/form-data">
+      <input type="file" name="xmlfile" accept=".xml" required>
+      <br><br>
+      <button type="submit">Upload</button>
+    </form>
+
+    {% if message %}
+      <p class="message">{{ message }}</p>
+    {% endif %}
+  </div>
+</body>
+</html>
