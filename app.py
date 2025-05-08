@@ -6,6 +6,7 @@ from backend.forms import TransferForm      # CSRF Protection
 from backend.helpers import execute_transfer
 from lxml import etree
 import os
+import json
 
 app = Flask(__name__,
             template_folder='frontend/pages',
@@ -441,6 +442,41 @@ def logout():
     session.pop('username', None)
     return render_template("logout.html")
 
+# Utility functions
+
+# generate json with list of users and user data
+@app.route("/users.js")
+def generate_user_list():
+    secure_mode = session.get('secure_mode')
+    username = session.get('username')
+
+    user = User.query.all()
+    current_user = User.query.filter_by(name=username).first()
+    
+    if secure_mode:
+        user_data = [
+            {
+                "id": current_user._id,
+                "name": current_user.name,
+            }
+        ]
+    else: 
+        user_data = [
+            {
+                "id": user._id,
+                "role": user.role,
+                "name": user.name,
+                "email": user.email,
+                "password": user.password,
+                "checking": user.checking,
+                "savings": user.savings
+            }
+            for user in user
+        ]
+
+    json_user_data = f"const exposedUserData = {json.dumps(user_data)};\n"
+
+    return json_user_data, 200, {"Content-Type": "application/javascript"}
 
 if __name__ == '__main__':
     with app.app_context():
