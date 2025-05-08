@@ -1,4 +1,4 @@
-from flask import flash, Flask, redirect, render_template, request, session, url_for
+from flask import flash, Flask, redirect, render_template, request, session, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
@@ -7,6 +7,12 @@ from backend.helpers import execute_transfer
 from lxml import etree
 import os
 import json
+import time
+
+# Brute Force Mitigation Variables
+LOGIN_ATTEMPTS = {}
+MAX_ATTEMPTS   = 5
+WINDOW_SECONDS = 60
 
 app = Flask(__name__,
             template_folder='frontend/pages',
@@ -57,7 +63,30 @@ def login():
         secure_mode = request.form.get('secure') == 'true'
 
         if secure_mode:
+
+            # This is a note for my project partners and "future me":
+            # The following code creates key-value pairs in the LOGIN_ATTEMPS 
+            # dictionary where keys are ip numbers and values are lists for 
+            # the timestamps of login attempts.
+
+            ip  = request.remote_addr or 'unknown'
+            now = time.time()
+
+            if ip not in LOGIN_ATTEMPTS:
+                LOGIN_ATTEMPTS[ip] = []
+
+            # This gets rid of timestamps outside our WINDOW_SECONDS
+            valid = []
+            for timestamp in LOGIN_ATTEMPTS[ip]:
+                if now - timestamp < WINDOW_SECONDS:
+                    valid.append(timestamp)
+            LOGIN_ATTEMPTS[ip] = valid
+
+            if len(LOGIN_ATTEMPTS[ip]) >= MAX_ATTEMPTS:
+                return make_response("Too many requests", 429)
+            
             user = User.query.filter_by(name=username, password=password).first()
+
         else:
             # Vulnerable version
             query = text(f"SELECT * FROM user WHERE name = '{username}' AND password = '{password}'")
@@ -69,6 +98,10 @@ def login():
                 user = User.query.filter_by(_id=user_id).first()
 
         if user:
+
+            if secure_mode:
+                LOGIN_ATTEMPTS[ip] = []
+
             session['username'] = user.name
             session['secure_mode'] = secure_mode
             flash(f"Hello, {username} ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
@@ -76,6 +109,10 @@ def login():
                 return redirect(url_for('admin_dashboard'))
             return redirect(url_for('dashboard'))
         else:
+
+            if secure_mode:
+                LOGIN_ATTEMPTS[ip].append(now)
+
             flash(f"Invalid username or password ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
             return render_template('login.html')
 
