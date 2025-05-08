@@ -7,18 +7,43 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="container">
-    <p class="banner">This site is for cybersecurity testing purposes. <br> Current Mode: <strong>{{ mode }}</strong> </p>
+    <div class="container">
+        <p class="banner">This site is for cybersecurity testing purposes. <br> Current Mode: <strong>{{ mode }}</strong> </p>
 
-    <h1>Capstone Bank - User Profile</h1>
-    <h2>{{ user.name }}'s Session: Profile</h2>
+        <h1>Capstone Bank - User Profile</h1>
+        <h2>{{ user.name }}'s Session: Profile</h2>
 
-    <p><strong>Name:</strong> {{ user.name }}</p>
-    <p><strong>Password:</strong> {{ user.password }}</p>
-    <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>Name:</strong> {{ user.name }}</p>
+        <p><strong>Password:</strong> {{ user.password }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        {% if session.get('secure_mode') %}
+            <span id="passwordVisible" style="display: none;">{{ user.password }}</span>
+            <span id="passwordHidden">******</span>
+            <label>
+                <input type="checkbox" id="togglePW"> Show Password
+            </label>
+            <script>
+                document.getElementById('togglePW').addEventListener('change', function () {
+                    const pwVisible = document.getElementById('passwordVisible');
+                    const pwdHidden = document.getElementById('passwordHidden');
+                    if (this.checked) {
+                        pwVisible.style.display = 'inline';
+                        pwdHidden.style.display = 'none';
+                    } else {
+                        pwVisible.style.display = 'none';
+                        pwHidden.style.display = 'inline';
+                    }
+                });
+            </script>
+        {% else %}
+            {{ user.password }}
+        {% endif %}
 
-    <br><br>
-    <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
-  </div>
+
+
+
+        <br><br>
+        <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+    </div>
 </body>
 </html>
