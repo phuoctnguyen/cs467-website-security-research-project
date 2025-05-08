@@ -14,7 +14,7 @@ This enables an attacker to perform a brute force attack to guess user passwords
 
 I prepared everthing necessary so you can perform a brute force attack on our app, by following these steps:
 1. Run the app
-2. Register a new user with username: tester and choose your own (simple) password.
+2. Register a new user with username: tester and choose your own (make sure you pick one from the 100 passwords listed in attack-demos/broken_authentication/passwords.txt file) password.
 3. In the attack-demos/broken_authentication folder (you may need to pip install requests first), run: python3 brute_force_test.py vulnerable
 4. The script will try to guess your password using a common password list from Kaggle (*), showing each attempt as it goes.
 5. Once it guesses correctly, it will display your password, the number of attempts, and the time taken. For example:
