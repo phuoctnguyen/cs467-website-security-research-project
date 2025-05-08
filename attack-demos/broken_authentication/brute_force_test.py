@@ -1,5 +1,16 @@
 import requests
 import time
+import sys
+
+if len(sys.argv) > 1:
+    mode = sys.argv[1]
+else:
+    mode = "vulnerable"
+
+if mode == "secure":
+    secure_flag = "true"
+else:
+    secure_flag = "false"
 
 url = "http://127.0.0.1:5000/login"
 username = "tester"
@@ -18,7 +29,7 @@ with open("passwords.txt", "r") as common_passwords:
         data = {
             "username": username,
             "password": password,
-            "secure": "false"  # vulnerable mode
+            "secure": secure_flag
         }
 
         resp = requests.post(url, data=data)
