@@ -14,8 +14,8 @@
         <h2>{{ user.name }}'s Session: Profile</h2>
 
         <p><strong>Name:</strong> {{ user.name }}</p>
-        <p><strong>Password:</strong> {{ user.password }}</p>
         <p><strong>Email:</strong> {{ user.email }}</p>
+        <p><strong>Password:</strong> </p>
         {% if session.get('secure_mode') %}
             <span id="passwordVisible" style="display: none;">{{ user.password }}</span>
             <span id="passwordHidden">******</span>
@@ -23,16 +23,20 @@
                 <input type="checkbox" id="togglePW"> Show Password
             </label>
             <script>
-                document.getElementById('togglePW').addEventListener('change', function () {
+                document.addEventListener('DOMContentLoaded', function () {
+                    const toggle = document.getElementById('togglePW');
                     const pwVisible = document.getElementById('passwordVisible');
-                    const pwdHidden = document.getElementById('passwordHidden');
-                    if (this.checked) {
-                        pwVisible.style.display = 'inline';
-                        pwdHidden.style.display = 'none';
-                    } else {
-                        pwVisible.style.display = 'none';
-                        pwHidden.style.display = 'inline';
-                    }
+                    const pwHidden = document.getElementById('passwordHidden');
+
+                    toggle.addEventListener('change', function () {
+                        if (this.checked) {
+                            pwVisible.style.display = 'inline';
+                            pwHidden.style.display = 'none';
+                        } else {
+                            pwVisible.style.display = 'none';
+                            pwHidden.style.display = 'inline';
+                        }
+                    });
                 });
             </script>
         {% else %}
