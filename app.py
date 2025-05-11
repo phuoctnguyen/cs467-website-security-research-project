@@ -168,14 +168,22 @@ def accounts():
 
 @app.route("/profile")
 def profile():
-    username = session.get('username')
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
+    if secure_mode:
+        username = session.get('username')
+        if request.args:
+            print("Likely Horizontal Broken Access Control Attack intercepted.")
+            return redirect(url_for('login'))
+    else:
+        username = request.args.get('username')
+
     if not username:
         flash("Please log in first.")
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    secure_mode = session.get('secure_mode', False)
-    mode = "secure" if secure_mode else "vulnerable"
 
     return render_template("profile.html", user=user, mode=mode)
 
@@ -401,7 +409,7 @@ def delete_user():
 
     if secure_mode:
         if admin.role != "admin":   # check deletion is performed by an admin
-            print("Likely Broken Access Control attack intercepted.")
+            print("Likely Horizontal Broken Access Control attack intercepted.")
             return redirect(url_for('login'))
 
     users = User.query.filter_by(role='user').all()
