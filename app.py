@@ -1,4 +1,4 @@
-from flask import flash, Flask, redirect, render_template, request, session, url_for, make_response
+from flask import abort, flash, Flask, redirect, render_template, request, session, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
@@ -172,10 +172,10 @@ def profile():
     mode = "secure" if secure_mode else "vulnerable"
 
     if secure_mode:
-        username = session.get('username')
-        if request.args:
-            print("Likely Horizontal Broken Access Control Attack intercepted.")
-            return redirect(url_for('login'))
+        username = session.get('username')  # set username from session only
+        if request.args and 'username' in request.args and username != request.args.get('username'):
+            print("Horizontal Broken Access Control Attack intercepted.")
+            abort(403)
     else:
         username = request.args.get('username')
 
@@ -299,9 +299,9 @@ def list_users():
     mode = "secure" if secure_mode else "vulnerable"
 
     if secure_mode:
-        if admin.role != "admin":   # check listing is performed by an admin
-            print("Likely Broken Access Control attack intercepted.")
-            return redirect(url_for('login'))
+        if admin.role != "admin":   # check user requesting the users list is an admin
+            print("Broken Access Control attack intercepted.")
+            abort(403)
 
     users = User.query.filter_by(role='user')
 
@@ -408,9 +408,9 @@ def delete_user():
     mode = "secure" if secure_mode else "vulnerable"
 
     if secure_mode:
-        if admin.role != "admin":   # check deletion is performed by an admin
-            print("Likely Horizontal Broken Access Control attack intercepted.")
-            return redirect(url_for('login'))
+        if admin.role != "admin":   # check user requesting the deletion is an admin
+            print("Horizontal Broken Access Control attack intercepted.")
+            abort(403)
 
     users = User.query.filter_by(role='user').all()
     message = ""
