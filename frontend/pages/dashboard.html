@@ -22,7 +22,7 @@
 				{% if mode == "secure" %}
 	        <li><a href="/profile">Profile</a></li>
 				{% else %}
-					<!-- vulnerable mode: pass username as query parameters -->
+					<!-- vulnerable mode: pass username as query parameter -->
 					<li><a href="/profile?username={{ user.name }}">Profile</a></li>
 				{% endif %}
         <li><a href="/import-data">Import</a></li>
