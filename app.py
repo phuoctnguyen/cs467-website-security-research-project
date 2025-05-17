@@ -1,4 +1,4 @@
-from flask import flash, Flask, redirect, render_template, request, session, url_for, make_response
+from flask import abort, flash, Flask, redirect, render_template, request, session, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
@@ -168,14 +168,22 @@ def accounts():
 
 @app.route("/profile")
 def profile():
-    username = session.get('username')
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+
+    if secure_mode:
+        username = session.get('username')  # set username from session only
+        if request.args and 'username' in request.args and username != request.args.get('username'):
+            print("Horizontal Broken Access Control Attack intercepted.")
+            abort(403)
+    else:
+        username = request.args.get('username')
+
     if not username:
         flash("Please log in first.")
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
-    secure_mode = session.get('secure_mode', False)
-    mode = "secure" if secure_mode else "vulnerable"
 
     return render_template("profile.html", user=user, mode=mode)
 
@@ -290,6 +298,11 @@ def list_users():
     secure_mode = session.get('secure_mode', False)
     mode = "secure" if secure_mode else "vulnerable"
 
+    if secure_mode:
+        if admin.role != "admin":   # check user requesting the users list is an admin
+            print("Broken Access Control attack intercepted.")
+            abort(403)
+
     users = User.query.filter_by(role='user')
 
     return render_template('list-users.html', mode=mode, admin=admin, users=users)
@@ -345,7 +358,6 @@ def edit_user():
     secure_mode = session.get('secure_mode', False)
     mode = "secure" if secure_mode else "vulnerable"
 
-
     users = User.query.filter_by(role='user').all()
     selected_user = None
     message = ""
@@ -395,6 +407,11 @@ def delete_user():
     secure_mode = session.get('secure_mode', False)
     mode = "secure" if secure_mode else "vulnerable"
 
+    if secure_mode:
+        if admin.role != "admin":   # check user requesting the deletion is an admin
+            print("Horizontal Broken Access Control attack intercepted.")
+            abort(403)
+
     users = User.query.filter_by(role='user').all()
     message = ""
     if request.method == 'POST':
@@ -412,6 +429,7 @@ def delete_user():
 
     return render_template('delete-user.html', mode=mode, admin=admin,
                            users=users, message=message)
+
 
 @app.route("/import-data", methods=["GET", "POST"])
 def import_data():
@@ -479,6 +497,7 @@ def logout():
     session.pop('username', None)
     return render_template("logout.html")
 
+
 # Utility functions
 
 # generate json with list of users and user data
@@ -515,12 +534,18 @@ def generate_user_list():
 
     return json_user_data, 200, {"Content-Type": "application/javascript"}
 
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         # Add a test non-admin user
         if not User.query.filter_by(name='tester').first():
             new_nonadmin_user = User(role='user', name='tester', password='abc123', email='tester@capstone.com')
+            db.session.add(new_nonadmin_user)
+            db.session.commit()
+        # Add a second test non-admin user to use as Broken Access Control deletion target
+        if not User.query.filter_by(name='qwer').first():
+            new_nonadmin_user = User(role='user', name='qwer', password='qwer', email='qwer@capstone.com')
             db.session.add(new_nonadmin_user)
             db.session.commit()
         # Add a test admin

@@ -19,7 +19,12 @@
         <li><a href="/accounts">Accounts</a></li>
         <li><a href="/transfer">Transfer</a></li>
         <li><a href="/deposit">Deposit</a></li>
-        <li><a href="/profile">Profile</a></li>
+				{% if mode == "secure" %}
+	        <li><a href="/profile">Profile</a></li>
+				{% else %}
+					<!-- vulnerable mode: pass username as query parameter -->
+					<li><a href="/profile?username={{ user.name }}">Profile</a></li>
+				{% endif %}
         <li><a href="/import-data">Import</a></li>
         <li><a href="/logout">Logout</a></li>
       </ul>
