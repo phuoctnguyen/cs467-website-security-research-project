@@ -8,6 +8,7 @@ from lxml import etree
 import os
 import json
 import time
+from markupsafe import Markup
 
 # Brute Force Mitigation Variables
 LOGIN_ATTEMPTS = {}
@@ -490,6 +491,32 @@ def import_data():
                 message = f"Error parsing XML: {str(e)}"
 
     return render_template("import-data.html", mode=mode, message=message)
+
+
+@app.route("/account-activity")
+def account_activity():
+    secure_mode = session.get('secure_mode', False)
+    mode = "secure" if secure_mode else "vulnerable"
+    activities = [
+        {"name": "Deposit", "amount": "$500.00", "date": "2025-05-17"},
+        {"name": "Withdrawal", "amount": "$100.00", "date": "2025-05-16"},
+        {"name": "Transfer", "amount": "$250.00", "date": "2025-05-15"},
+    ]
+
+    raw_query = request.args.get('query', '')
+    query_lower = raw_query.lower()
+    if query_lower:
+        activities = [act for act in activities if query_lower in act["name"].lower()]
+
+    safe_query = Markup(raw_query) if not secure_mode else raw_query
+
+    return render_template(
+        'account-activity.html',
+        mode=mode,
+        activities=activities,
+        query=safe_query,
+        vulnerable=not secure_mode
+    )
 
 
 @app.route("/logout")
