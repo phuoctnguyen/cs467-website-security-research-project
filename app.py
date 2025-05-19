@@ -6,6 +6,7 @@ from backend.forms import TransferForm      # CSRF Protection
 from backend.helpers import execute_transfer
 from lxml import etree
 import os
+import bcrypt   # Password Hashing
 import json
 import time
 from markupsafe import Markup
@@ -40,7 +41,8 @@ class User(db.Model):
     role = db.Column("role", db.String(8))
     name = db.Column("name", db.String(100))
     email = db.Column("email", db.String(320))
-    password = db.Column("password", db.String(100))
+    password = db.Column("password", db.String(100))    # to be used in vulnerable mode
+    password_hash = db.Column("password_hash", db.String(200))  # to be used in secure mode
     checking = db.Column("checking", db.Float, default=DEFAULT_CHECKING)
     savings = db.Column("savings", db.Float, default=DEFAULT_SAVINGS)
 
@@ -51,6 +53,12 @@ class User(db.Model):
         self.password = password
         self.checking = checking
         self.savings = savings
+        # create a default password hash attribute and store it in database
+        # this password hash will be used in the secure version of the app
+        # code adapted from: https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
+        password_to_bytes = password.encode('utf-8')  # convert password to array of bytes
+        salt = bcrypt.gensalt()  # generate salt to add to password before hashing
+        self.password_hash = bcrypt.hashpw(password_to_bytes, salt).decode()  # hash and store as string for DB
 
     def get_id(self):
         return self._id
@@ -85,8 +93,8 @@ def login():
 
             if len(LOGIN_ATTEMPTS[ip]) >= MAX_ATTEMPTS:
                 return make_response("Too many requests", 429)
-            
-            user = User.query.filter_by(name=username, password=password).first()
+
+            user = User.query.filter_by(name=username).first()  # get user with matching username from DB
 
         else:
             # Vulnerable version
@@ -102,6 +110,17 @@ def login():
 
             if secure_mode:
                 LOGIN_ATTEMPTS[ip] = []
+
+                # check password hashes match
+                # code adapted from:
+                # https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
+                password_bytes = password.encode('utf-8')  # change entered password to bytes
+                password_hash_in_db = user.password_hash.encode()  # get password hash from db
+                password_check = bcrypt.checkpw(password_bytes, password_hash_in_db)  # check match
+                if not password_check:
+                    flash("Invalid username or password.")
+                    print("Invalid username or password (hash doesn't match).")
+                    return render_template('login.html')
 
             session['username'] = user.name
             session['secure_mode'] = secure_mode
