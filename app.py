@@ -516,25 +516,31 @@ def import_data():
 def account_activity():
     secure_mode = session.get('secure_mode', False)
     mode = "secure" if secure_mode else "vulnerable"
+    # list of example activities
     activities = [
         {"name": "Deposit", "amount": "$500.00", "date": "2025-05-17"},
         {"name": "Withdrawal", "amount": "$100.00", "date": "2025-05-16"},
         {"name": "Transfer", "amount": "$250.00", "date": "2025-05-15"},
     ]
 
+    # search query for search field
     raw_query = request.args.get('query', '')
     query_lower = raw_query.lower()
     if query_lower:
         activities = [act for act in activities if query_lower in act["name"].lower()]
-
-    safe_query = Markup(raw_query) if not secure_mode else raw_query
+    
+    # use markup in vulnerable mode to handle the raw input as safe html
+    # in secure mode, flask automatically escapes the input when rendering preventing xss
+    if secure_mode:
+        safe_query = raw_query
+    else:
+        safe_query = Markup(raw_query)
 
     return render_template(
         'account-activity.html',
         mode=mode,
         activities=activities,
         query=safe_query,
-        vulnerable=not secure_mode
     )
 
 
