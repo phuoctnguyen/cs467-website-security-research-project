@@ -7,6 +7,7 @@ from backend.helpers import execute_transfer
 from lxml import etree
 import os
 import bcrypt   # Password Hashing
+import hashlib  # Password Hashing
 import json
 import time
 
@@ -40,10 +41,15 @@ class User(db.Model):
     role = db.Column("role", db.String(8))
     name = db.Column("name", db.String(100))
     email = db.Column("email", db.String(320))
-    password = db.Column("password", db.String(100))    # to be used in vulnerable mode
-    pwd_bcrypt = db.Column("pwd_bcrypt", db.String(200))  # to be used in secure mode
+    password = db.Column("password", db.String(128))    # plaintext password to be used in vulnerable mode
     checking = db.Column("checking", db.Float, default=DEFAULT_CHECKING)
     savings = db.Column("savings", db.Float, default=DEFAULT_SAVINGS)
+
+    # salts & password hashes to store
+    md5_salt = db.Column("pwd_salt_md5", db.String(16))
+    pwd_hash_md5_unsalted = db.Column("pwd_hash_md5_unsalted", db.String(32))
+    pwd_hash_md5_salted = db.Column("pwd_hash_md5_salted", db.String(32))
+    pwd_hash_bcrypt = db.Column("pwd_hash_bcrypt", db.String(128))
 
     def __init__(self, role, name, password, email, checking=DEFAULT_CHECKING, savings=DEFAULT_SAVINGS):
         self.role = role
@@ -52,12 +58,19 @@ class User(db.Model):
         self.password = password    # plaintext password
         self.checking = checking
         self.savings = savings
-        # create a default password hash attribute and store it in database
-        # this password hash will be used in the secure version of the app
+
+        # create salt and password hash attributes and store them in database
+        # bcrypt password hash will be used in the secure version of the app
         # code adapted from: https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
         password_to_bytes = password.encode('utf-8')  # convert password to array of bytes
-        salt = bcrypt.gensalt()  # generate salt to add to password before hashing
-        self.pwd_bcrypt = bcrypt.hashpw(password_to_bytes, salt).decode()  # hash and store as string for DB
+
+        self.pwd_hash_md5_unsalted = hashlib.md5(password_to_bytes).hexdigest()
+
+        self.md5_salt = os.urandom(16)  # generate & store salt to add to plaintext before hashing
+        self.pwd_hash_md5_salted = hashlib.md5(self.md5_salt + password_to_bytes).hexdigest()
+
+        bcrypt_salt = bcrypt.gensalt()  # generate salt to add to plaintext before hashing; stored within hash
+        self.pwd_hash_bcrypt = bcrypt.hashpw(password_to_bytes, bcrypt_salt).decode()
 
     def get_id(self):
         return self._id
@@ -114,8 +127,8 @@ def login():
                 # code adapted from:
                 # https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
                 password_bytes = password.encode('utf-8')   # change entered password to bytes
-                pwd_bcrypt_in_db = user.pwd_bcrypt.encode()     # get bcrypt password hash from db
-                password_check = bcrypt.checkpw(password_bytes, pwd_bcrypt_in_db)   # check match
+                pwd_hash_bcrypt_in_db = user.pwd_hash_bcrypt.encode()     # get bcrypt password hash from db
+                password_check = bcrypt.checkpw(password_bytes, pwd_hash_bcrypt_in_db)   # check match
                 if not password_check:
                     flash("Invalid username or password.")
                     print("Invalid username or password (hash doesn't match).")
@@ -538,7 +551,7 @@ def generate_user_list():
     else:
         # exposed password depends on query parameter 'pwd_choice'
         pwd_choice = request.args.get('pwd_choice')
-        valid_pwd_choices = {'pwd_bcrypt'}
+        valid_pwd_choices = {'pwd_hash_md5_unsalted', 'pwd_hash_md5_salted', 'pwd_hash_bcrypt'}
         pwd_attr = pwd_choice if pwd_choice in valid_pwd_choices else 'password'    # default to plaintext pwd
         user_data = [
             {
