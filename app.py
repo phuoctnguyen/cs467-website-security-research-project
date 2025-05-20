@@ -41,7 +41,7 @@ class User(db.Model):
     name = db.Column("name", db.String(100))
     email = db.Column("email", db.String(320))
     password = db.Column("password", db.String(100))    # to be used in vulnerable mode
-    password_hash = db.Column("password_hash", db.String(200))  # to be used in secure mode
+    pwd_bcrypt = db.Column("pwd_bcrypt", db.String(200))  # to be used in secure mode
     checking = db.Column("checking", db.Float, default=DEFAULT_CHECKING)
     savings = db.Column("savings", db.Float, default=DEFAULT_SAVINGS)
 
@@ -49,7 +49,7 @@ class User(db.Model):
         self.role = role
         self.name = name
         self.email = email
-        self.password = password
+        self.password = password    # plaintext password
         self.checking = checking
         self.savings = savings
         # create a default password hash attribute and store it in database
@@ -57,7 +57,7 @@ class User(db.Model):
         # code adapted from: https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
         password_to_bytes = password.encode('utf-8')  # convert password to array of bytes
         salt = bcrypt.gensalt()  # generate salt to add to password before hashing
-        self.password_hash = bcrypt.hashpw(password_to_bytes, salt).decode()  # hash and store as string for DB
+        self.pwd_bcrypt = bcrypt.hashpw(password_to_bytes, salt).decode()  # hash and store as string for DB
 
     def get_id(self):
         return self._id
@@ -113,9 +113,9 @@ def login():
                 # check password hashes match
                 # code adapted from:
                 # https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
-                password_bytes = password.encode('utf-8')  # change entered password to bytes
-                password_hash_in_db = user.password_hash.encode()  # get password hash from db
-                password_check = bcrypt.checkpw(password_bytes, password_hash_in_db)  # check match
+                password_bytes = password.encode('utf-8')   # change entered password to bytes
+                pwd_bcrypt_in_db = user.pwd_bcrypt.encode()     # get bcrypt password hash from db
+                password_check = bcrypt.checkpw(password_bytes, pwd_bcrypt_in_db)   # check match
                 if not password_check:
                     flash("Invalid username or password.")
                     print("Invalid username or password (hash doesn't match).")
@@ -525,28 +525,32 @@ def generate_user_list():
     secure_mode = session.get('secure_mode')
     username = session.get('username')
 
-    user = User.query.all()
+    users = User.query.all()
     current_user = User.query.filter_by(name=username).first()
-    
+
     if secure_mode:
         user_data = [
             {
-                "id": current_user._id,
-                "name": current_user.name,
+                "id": current_user.get_id(),
+                "name": current_user.name
             }
         ]
-    else: 
+    else:
+        # exposed password depends on query parameter 'pwd_choice'
+        pwd_choice = request.args.get('pwd_choice')
+        valid_pwd_choices = {'pwd_bcrypt'}
+        pwd_attr = pwd_choice if pwd_choice in valid_pwd_choices else 'password'    # default to plaintext pwd
         user_data = [
             {
-                "id": user._id,
+                "id": user.get_id(),
                 "role": user.role,
                 "name": user.name,
                 "email": user.email,
-                "password": user.password,
+                "password": getattr(user, pwd_attr),
                 "checking": user.checking,
                 "savings": user.savings
             }
-            for user in user
+            for user in users
         ]
 
     json_user_data = f"const exposedUserData = {json.dumps(user_data)};\n"
