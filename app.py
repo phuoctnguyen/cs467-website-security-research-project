@@ -1,4 +1,4 @@
-from flask import abort, flash, Flask, redirect, render_template, request, session, url_for, make_response
+from flask import abort, flash, Flask, redirect, render_template, request, session, url_for, make_response, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
@@ -9,6 +9,7 @@ import os
 import bcrypt   # Password Hashing
 import json
 import time
+import re
 from markupsafe import Markup
 
 # Brute Force Mitigation Variables
@@ -34,6 +35,30 @@ csrf = CSRFProtect(app)     # enable CSRF protection
 DEFAULT_CHECKING = 1000.00
 DEFAULT_SAVINGS = 5000.00
 
+# Secure Headers (only in secure mode)
+@app.after_request
+def add_security_headers(response):
+    if session.get('secure_mode'):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Content-Security-Policy'] = "default-src 'self'"
+        response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
+        response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
+def validate_password_strength(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"\d", password):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", password):
+        return False
+    return True
 
 # User model
 class User(db.Model):
@@ -135,6 +160,14 @@ def login():
 
             flash(f"Invalid username or password ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
             return render_template('login.html')
+        
+    else:
+        if session.pop('just_logged_out', None):
+            session.pop('_flashes', None)  # only clear if logging out
+
+        if session.pop('just_registered', None):
+            flash("Registration successful! Please log in.")
+
 
     return render_template('login.html')
 
@@ -144,16 +177,28 @@ def register():
     if request.method == "POST":
         username = request.form['username']
         password = request.form['password']
+        confirm_password = request.form.get('confirm-password')
+        secure_mode = request.form.get('secure') == 'true'
+        session['secure_mode'] = secure_mode  # Store this to persist for flash logic
+
+        if secure_mode:
+            if password != confirm_password:
+                flash("Passwords do not match.")
+                return redirect(url_for('register'))
+
+            if not validate_password_strength(password):
+                flash("Password must be at least 8 characters long and include uppercase, lowercase, digits, and special characters.")
+                return redirect(url_for('register'))
 
         existing_user = User.query.filter_by(name=username).first()
         if existing_user:
-            flash("Username already exists")
+            flash("Username already exists.")
             return redirect(url_for('register'))
 
         new_user = User(role='user', name=username, password=password, email=None)
         db.session.add(new_user)
         db.session.commit()
-        flash("Registration successful! Please log in.")
+        session['just_registered'] = True
         return redirect(url_for('login'))
 
     return render_template('register.html')
@@ -547,8 +592,10 @@ def account_activity():
 @app.route("/logout")
 def logout():
     session.pop('username', None)
-    return render_template("logout.html")
-
+    session.pop('secure_mode', None)
+    session['just_logged_out'] = True  # set flag so login page knows to clear flashes
+    flash("You have been logged out.")
+    return redirect(url_for('login'))
 
 # Utility functions
 
