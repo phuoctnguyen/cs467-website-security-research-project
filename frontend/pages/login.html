@@ -9,6 +9,20 @@
 <body>
     <div class="container">
         <h2>Login to Your Account</h2>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% set msg = messages[-1] %}
+            <div class="flash-message">
+              {% if 'successful' in msg.lower() %}
+                <p style="color: green;">{{ msg }}</p>
+              {% else %}
+                <p style="color: red;">{{ msg }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
         <form action="/login" method="POST">
             <div class="form-group">
                 <label for="username">Username:</label>
