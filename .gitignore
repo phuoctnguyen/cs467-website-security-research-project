@@ -9,3 +9,4 @@ venv
 venv/
 .venv/
 instance/
+frontend/uploads/profile_pics/*
