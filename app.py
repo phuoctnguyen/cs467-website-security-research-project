@@ -310,6 +310,7 @@ def profile():
 
                 if os.path.exists(filepath):
                     os.remove(filepath) # delete the malicious file
+                    
             except Exception as e:
                 flash(f"An error occurred during picture upload: {str(e)}")
 
