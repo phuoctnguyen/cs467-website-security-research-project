@@ -282,41 +282,50 @@ def profile():
             original_filename = secure_filename(file.filename)
             unique_filename = f"{user.get_id()}_{original_filename}"
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            
-            try:
-                file.save(filepath)
 
-                # --- Pillow Vulnerability / Processing Point ---
-                # with Pillow < 8.3.0, a decompression bomb can cause DoS here.
-                # with Pillow >= 8.3.0, it should raise DecompressionBombError.
-                
-                # this is the vulnerable operation for Pillow 8.2.0
+            file.save(filepath)
+            
+            if mode == "secure":
+
+                print("SECURE MODE: Attempting to process image with error handling.")
+
+                try:
+                    img = Image.open(filepath)
+                    img.load() 
+                    user.profile_picture = os.path.join('uploads/profile_pics', unique_filename)
+                    db.session.commit()
+                    flash('Profile picture uploaded successfully! (Secure Mode)')
+
+                except Image.DecompressionBombError as dbe:
+                    print(f"SECURE: Caught Image.DecompressionBombError: {type(dbe).__name__} - {str(dbe)}")
+                    flash("Image is too large or is a decompression bomb. Upload failed. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+
+                except UnidentifiedImageError as uie:
+                    print(f"SECURE: Caught UnidentifiedImageError: {type(uie).__name__} - {str(uie)}")
+                    flash("Cannot identify image file. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+
+                except ValueError as ve: 
+                    print(f"SECURE: Caught ValueError: {type(ve).__name__} - {str(ve)}")
+                    flash(f"A ValueError occurred: {str(ve)}. Upload failed. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+
+                except Exception as e: 
+                    print(f"SECURE: Caught generic Exception: {type(e).__name__} - {str(e)}")
+                    flash(f"An unexpected error occurred: {type(e).__name__}. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+            
+            else: # VULNERABLE
+
+                print("VULNERABLE MODE: Processing image without specific bomb error handling.")
                 img = Image.open(filepath)
                 img.load() 
-
-                # for the demo, we'll just store the path to the uploaded (potentially dangerous) file
+                
                 user.profile_picture = os.path.join('uploads/profile_pics', unique_filename)
                 db.session.commit()
-                flash('Profile picture uploaded successfully!')
+                flash('Profile picture uploaded successfully! (Vulnerable Mode)') # this line won't be reached
 
-            except UnidentifiedImageError:
-                flash("Cannot identify image file. It might be corrupted or not a supported format.")
-
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-
-            except Image.DecompressionBombError: # this will be caught with Pillow >= 8.3.0
-                flash("Image is too large or is a decompression bomb. Upload failed.")
-
-                if os.path.exists(filepath):
-                    os.remove(filepath) # delete the malicious file
-                    
-            except Exception as e:
-                flash(f"An error occurred during picture upload: {str(e)}")
-
-                if os.path.exists(filepath): # delete the file with error(s)
-                    os.remove(filepath)
-            
             return redirect(url_for('profile', username=user.name if not secure_mode else None))
         
         else:
