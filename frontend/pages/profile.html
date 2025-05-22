@@ -13,6 +13,35 @@
         <h1>Capstone Bank - User Profile</h1>
         <h2>{{ user.name }}'s Session: Profile</h2>
 
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class=flashes>
+            {% for message in messages %}
+              <li>{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <div>
+            {% if user.profile_picture %}
+                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture" class="profile-pic">
+            {% else %}
+                <p>No profile picture uploaded.</p>
+                {% endif %}
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('profile', username=user.name if not session.get('secure_mode') else None) }}">
+            <div>
+                <label for="profile_pic">Change Profile Picture:</label>
+                <input type="file" name="profile_pic" id="profile_pic" accept=".png,.jpg,.jpeg,.gif,.tiff">
+            </div>
+            <div>
+                <input type="submit" value="Upload Picture">
+            </div>
+        </form>
+        <hr>
+
         <p><strong>Name:</strong> {{ user.name }}</p>
         <p><strong>Email:</strong> {{ user.email }}</p>
         <p><strong>Password:</strong> </p>
