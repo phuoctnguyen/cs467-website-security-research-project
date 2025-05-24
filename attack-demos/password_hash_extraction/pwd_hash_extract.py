@@ -52,14 +52,18 @@ for raw_pwd in rockyou_pwds_raw:
 total_passwords = len(rockyou_pwds)     # to use for time estimates
 
 if option == '1':   # md5 unsalted
-    # generate hash from passwords in rockyou.txt & compare against leaked hashes
+    # generate hash table containing hashes from rockyou passwords: this creates the 'table' in a table attack
+    md5_hash_table = {}     # dictionary to store hash table
     for pwd in rockyou_pwds:
         hash_md5_unsalted = hashlib.md5(pwd).hexdigest()   # generate hash
-        if hash_md5_unsalted in exposed_hashes_set:
-            print(f"\tSuccess! Matching hash found: '{hash_md5_unsalted}', Password: '{pwd.decode('utf-8')}'")
+        md5_hash_table[hash_md5_unsalted] = pwd     # store hash as key in dictionary with password as value
+
+    # look up exposed hashes in 'hash table': this simulates the table attack itself
+    for exposed_hash in exposed_hashes_set:
+        if exposed_hash in md5_hash_table:
+            print(f"\tSuccess! Matching hash found: '{exposed_hash}', "
+                  f"Password: '{md5_hash_table[exposed_hash].decode('utf-8')}'")
             cracked_exposed_hashes -= 1
-            if cracked_exposed_hashes == 0:
-                break
 
 elif option == '2':     # md5 salted
     total_combinations_1byte = 256    # 2^8 possible combinations
