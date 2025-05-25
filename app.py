@@ -49,7 +49,7 @@ class User(db.Model):
     md5_salt = db.Column("pwd_salt_md5", db.String(16))
     pwd_hash_md5_unsalted = db.Column("pwd_hash_md5_unsalted", db.String(32))
     pwd_hash_md5_salted = db.Column("pwd_hash_md5_salted", db.String(32))
-    pwd_hash_bcrypt = db.Column("pwd_hash_bcrypt", db.String(128))
+    pwd_hash_bcrypt = db.Column("pwd_hash_bcrypt", db.String(128))  # to be used in secure mode
 
     def __init__(self, role, name, password, email, checking=DEFAULT_CHECKING, savings=DEFAULT_SAVINGS):
         self.role = role
@@ -60,15 +60,15 @@ class User(db.Model):
         self.savings = savings
 
         # create salt and password hash attributes and store them in database
-        # bcrypt password hash will be used in the secure version of the app
         # code adapted from: https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
         password_to_bytes = password.encode('utf-8')  # convert password to array of bytes
 
         self.pwd_hash_md5_unsalted = hashlib.md5(password_to_bytes).hexdigest()
 
-        self.md5_salt = os.urandom(16)  # generate & store salt to add to plaintext before hashing
+        self.md5_salt = os.urandom(1)   # generate & store 1-byte salt to add to plaintext before hashing
         self.pwd_hash_md5_salted = hashlib.md5(self.md5_salt + password_to_bytes).hexdigest()
 
+        # bcrypt password hash will be used in the secure version of the app
         bcrypt_salt = bcrypt.gensalt()  # generate salt to add to plaintext before hashing; stored within hash
         self.pwd_hash_bcrypt = bcrypt.hashpw(password_to_bytes, bcrypt_salt).decode()
 
