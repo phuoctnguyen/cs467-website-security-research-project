@@ -9,7 +9,7 @@ def create_rainbow_table(rainbow_table_filepath, rockyou_filepath):
     if os.path.exists(rainbow_table_filepath):
         print("Rainbow table exists.")
     else:
-        print("Rainbow table does not exist. Creating it...\n")
+        print("\nRainbow table does not exist. Creating it...")
 
         # read & clean passwords
         with open(rockyou_filepath, "r", errors="ignore") as pwd_file:
@@ -30,3 +30,14 @@ def create_rainbow_table(rainbow_table_filepath, rockyou_filepath):
             print("Rainbow table created.")
         except Exception as e:
             print(f"Error creating the rainbow table:", e)
+
+
+def time_str(secs, file_name, option):
+    """Return a time string from given parameters."""
+
+    if option == '1':
+        return f"{(secs * 1000):.2f} milliseconds"
+    if option == '2':
+        return f"{(secs / 60):.2f} minutes" if file_name == "rockyou.txt" else f"{secs:.2f} seconds"
+    else:
+        return f"{(secs / 3600):.2f} hours" if file_name == "rockyou.txt" else f"{(secs / 60):.2f} minutes"
