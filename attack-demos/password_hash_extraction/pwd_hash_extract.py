@@ -1,8 +1,11 @@
 import bcrypt
 import hashlib
 import json
+import os
 import requests
 import time
+from create_rainbow_table import create_rainbow_table
+
 
 target_url = "http://localhost:5000/users.js"
 print("\nChoose a hashing algorithm to demonstrate password extraction:\n1: MD5 (unsalted)\n2: MD5 (salted)\n3: bcrypt")
@@ -33,15 +36,14 @@ print("\nExposed hashes:")
 for hash_ in exposed_hashes_set:
     print(f"\t{hash_}" if option == '3' else f"\t'{hash_}'")
 total_exposed_hashes = len(exposed_hashes_set)  # for time estimates (bcrypt)
-cracked_exposed_hashes = total_exposed_hashes   # for tracking
+exposed_hashes_cracked = total_exposed_hashes   # for tracking
 
 # read passwords from rockyou.txt & store them in rockyou_pwds
-rockyou_file = "rockyou.txt"
-pwd_file = open(rockyou_file, 'r', errors="ignore")
-rockyou_pwds_raw = pwd_file.readlines()
-pwd_file.close()
+rockyou_filepath = "rocku_1st1k.txt"    # use "rockyou.txt" for full list
+with open(rockyou_filepath, "r", errors="ignore") as pwd_file:
+    rockyou_pwds_raw = pwd_file.readlines()
 
-print("\nProcessing hashes. Please be patient... \n")
+print("\nProcessing hashes. Please be patient...\n")
 
 # remove trailing newline character & encode every rockyou password to set it up for hashing
 rockyou_pwds = []
@@ -51,21 +53,25 @@ for raw_pwd in rockyou_pwds_raw:
     rockyou_pwds.append(pwd_to_bytes)
 total_passwords = len(rockyou_pwds)     # to use for time estimates
 
-if option == '1':   # md5 unsalted
-    # generate hash table containing hashes from rockyou passwords: this creates the 'table' in a table attack
-    md5_hash_table = {}     # dictionary to store hash table
-    for pwd in rockyou_pwds:
-        hash_md5_unsalted = hashlib.md5(pwd).hexdigest()   # generate hash
-        md5_hash_table[hash_md5_unsalted] = pwd     # store hash as key in dictionary with password as value
+if option == '1':   # rainbow attack on md5 unsalted hashes
+    # create rainbow table if it doesn't exist
+    rainbow_table_filepath = "rainbow_table.json"
+    if not os.path.exists(rainbow_table_filepath):
+        create_rainbow_table(rainbow_table_filepath, rockyou_filepath)
+
+    print("\nTable attack starting...")
+    # read pre-computed rainbow table from file to dict
+    with open(rainbow_table_filepath, "r") as rainbow_file:
+        md5_rainbow_table = json.load(rainbow_file)
 
     # look up exposed hashes in 'hash table': this simulates the table attack itself
     for exposed_hash in exposed_hashes_set:
-        if exposed_hash in md5_hash_table:
+        if exposed_hash in md5_rainbow_table:
             print(f"\tSuccess! Matching hash found: '{exposed_hash}', "
-                  f"Password: '{md5_hash_table[exposed_hash].decode('utf-8')}'")
-            cracked_exposed_hashes -= 1
+                  f"Password: '{md5_rainbow_table[exposed_hash]}'")
+            exposed_hashes_cracked -= 1
 
-elif option == '2':     # md5 salted
+elif option == '2':     # brute-force on md5 salted hashes
     total_combinations_1byte = 256    # 2^8 possible combinations
     iterations_const = 10000000
     total_comparisons = total_passwords * total_combinations_1byte
@@ -95,15 +101,16 @@ elif option == '2':     # md5 salted
             hash_md5_salted = hashlib.md5(salt + pwd).hexdigest()  # generate hash
             if hash_md5_salted in exposed_hashes_set:
                 print(f"\tSuccess! Hash cracked: '{hash_md5_salted}', Salt: {salt}, Password: '{pwd.decode('utf-8')}'")
-                cracked_exposed_hashes -= 1
-                if cracked_exposed_hashes == 0:
+                exposed_hashes_cracked -= 1
+                if exposed_hashes_cracked == 0:
                     break
 
-        if cracked_exposed_hashes == 0:
+        if exposed_hashes_cracked == 0:
             break
 
-else:   # bcrypt
+else:   # brute-force on bcrypt hashes
     iterations_const = 50   # constant to check time rate against
+
     # iterate over each exposed hash
     for exposed_hash in exposed_hashes_set:
         print(f"Trying exposed hash: {exposed_hash}")  # show current hash
@@ -133,10 +140,10 @@ else:   # bcrypt
             if bcrypt.checkpw(pwd, exposed_hash):   # check match
                 salt = exposed_hash[:29]    # salt is first 29 characters in hash
                 print(f"\tSuccess! Hash cracked: {exposed_hash}, Salt: {salt}, Password: '{pwd.decode('utf-8')}'")
-                cracked_exposed_hashes -= 1
+                exposed_hashes_cracked -= 1
                 break
 
-if cracked_exposed_hashes == 0:
+if exposed_hashes_cracked == 0:
     print("\nAll hashes were succesfully cracked.")
 else:
-    print(f"\nUnable to crack {cracked_exposed_hashes} {'hashes' if cracked_exposed_hashes > 1 else 'hash'}.")
+    print(f"\nUnable to crack {exposed_hashes_cracked} {'hashes' if exposed_hashes_cracked > 1 else 'hash'}.")
