@@ -11,6 +11,8 @@ import json
 import time
 import re
 from markupsafe import Markup
+from PIL import Image, ImageFile, UnidentifiedImageError
+from werkzeug.utils import secure_filename
 
 # Brute Force Mitigation Variables
 LOGIN_ATTEMPTS = {}
@@ -34,6 +36,16 @@ csrf = CSRFProtect(app)     # enable CSRF protection
 
 DEFAULT_CHECKING = 1000.00
 DEFAULT_SAVINGS = 5000.00
+
+# Image upload variables
+UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads/profile_pics')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'tiff'}
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Helper for image checking
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Secure Headers (only in secure mode)
 @app.after_request
@@ -70,14 +82,16 @@ class User(db.Model):
     password_hash = db.Column("password_hash", db.String(200))  # to be used in secure mode
     checking = db.Column("checking", db.Float, default=DEFAULT_CHECKING)
     savings = db.Column("savings", db.Float, default=DEFAULT_SAVINGS)
+    profile_picture = db.Column(db.String(255), nullable=True)
 
-    def __init__(self, role, name, password, email, checking=DEFAULT_CHECKING, savings=DEFAULT_SAVINGS):
+    def __init__(self, role, name, password, email, checking=DEFAULT_CHECKING, savings=DEFAULT_SAVINGS, profile_picture=None):
         self.role = role
         self.name = name
         self.email = email
         self.password = password
         self.checking = checking
         self.savings = savings
+        self.profile_picture = profile_picture
         # create a default password hash attribute and store it in database
         # this password hash will be used in the secure version of the app
         # code adapted from: https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
@@ -231,7 +245,7 @@ def accounts():
     return render_template("accounts.html", user=user, mode=mode)
 
 
-@app.route("/profile")
+@app.route("/profile", methods=["GET", "POST"])
 def profile():
     secure_mode = session.get('secure_mode', False)
     mode = "secure" if secure_mode else "vulnerable"
@@ -249,6 +263,75 @@ def profile():
         return redirect(url_for('login'))
 
     user = User.query.filter_by(name=username).first()
+
+    if not user:
+        flash(f"User '{username}' not found.")
+        return redirect(url_for('login'))
+
+    if request.method == "POST":
+        if 'profile_pic' not in request.files:
+            flash('No file part in request.')
+            return redirect(request.url)
+        
+        file = request.files['profile_pic']
+        if file.filename == '':
+            flash('No file selected.')
+            return redirect(request.url)
+
+        if file and allowed_file(file.filename):
+            original_filename = secure_filename(file.filename)
+            unique_filename = f"{user.get_id()}_{original_filename}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+
+            file.save(filepath)
+            
+            if mode == "secure":
+
+                print("SECURE MODE: Attempting to process image with error handling.")
+
+                try:
+                    img = Image.open(filepath)
+                    img.load() 
+                    user.profile_picture = os.path.join('uploads/profile_pics', unique_filename)
+                    db.session.commit()
+                    flash('Profile picture uploaded successfully! (Secure Mode)')
+
+                except Image.DecompressionBombError as dbe:
+                    print(f"SECURE: Caught Image.DecompressionBombError: {type(dbe).__name__} - {str(dbe)}")
+                    flash("Image is too large or is a decompression bomb. Upload failed. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+
+                except UnidentifiedImageError as uie:
+                    print(f"SECURE: Caught UnidentifiedImageError: {type(uie).__name__} - {str(uie)}")
+                    flash("Cannot identify image file. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+
+                except ValueError as ve: 
+                    print(f"SECURE: Caught ValueError: {type(ve).__name__} - {str(ve)}")
+                    flash(f"A ValueError occurred: {str(ve)}. Upload failed. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+
+                except Exception as e: 
+                    print(f"SECURE: Caught generic Exception: {type(e).__name__} - {str(e)}")
+                    flash(f"An unexpected error occurred: {type(e).__name__}. (Secure Mode)")
+                    if os.path.exists(filepath): os.remove(filepath)
+            
+            else: # VULNERABLE
+
+                print("VULNERABLE MODE: Processing image without specific bomb error handling.")
+                img = Image.open(filepath)
+                img.load() 
+                
+                user.profile_picture = os.path.join('uploads/profile_pics', unique_filename)
+                db.session.commit()
+                flash('Profile picture uploaded successfully! (Vulnerable Mode)') # this line won't be reached
+
+            return redirect(url_for('profile', username=user.name if not secure_mode else None))
+        
+        else:
+
+            flash('File type not allowed. Allowed types: png, jpg, jpeg, gif, tiff.')
+            return redirect(request.url)
 
     return render_template("profile.html", user=user, mode=mode)
 
