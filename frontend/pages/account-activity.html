@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Account Activity</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <p class="banner">This site is for cybersecurity testing purposes. <br> Current Mode: <strong>{{ mode }}</strong> </p>
+
+        <h1>Account Activity</h1>
+
+        <form method="get" action="{{ url_for('account_activity') }}">
+            <input type="text" name="query" placeholder="Search activity name..." value="{{ query or '' }}">
+            <button type="submit">Search</button>
+        </form>
+
+        <table border="1" cellpadding="10" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Activity</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for act in activities %}
+                <tr>
+                    <td>{{ act.name }}</td>
+                    <td>{{ act.amount }}</td>
+                    <td>{{ act.date }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3">No matching activity found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <br><br>
+        <a href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+
+    </div>
+</body>
+</html>
