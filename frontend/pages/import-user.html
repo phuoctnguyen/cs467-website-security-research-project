@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Import User</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <p class="banner">This site is for cybersecurity testing purposes. <br> Current Mode: <strong>{{ mode | capitalize }}</strong> </p>
+        <h1>Capstone Bank - Admin Portal</h1>
+        <h2>{{ admin.name }}'s Session: Import New User</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message_text in messages %}
+                    <div class="alert alert-{{ category or 'info' }}">{{ message_text }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if message and not get_flashed_messages() and request.method == 'GET' %}
+            <div class="alert alert-info">{{ message }}</div>
+        {% endif %}
+
+        <hr>
+        <h3>Import User from File</h3>
+        <p>
+            {% if mode == 'secure' %}
+                Please upload a JSON file (.json) containing user data (role, name, email, pwd_hash_bcrypt) to create a new user. Other file types will not be accepted.
+            {% else %}
+                Please upload a .dat file (pickled Python object) to create a new user.
+            {% endif %}
+        </p>
+
+        <form method="POST" action="{{ url_for('admin_import_user_page') }}" enctype="multipart/form-data">
+            
+            <div class="mb-3">
+                <label for="user_file" class="form-label">User Data File:</label><br>
+                <input class="form-control" type="file" id="user_file" name="user_file" required>
+            </div>
+            <br>
+            <button type="submit" class="btn btn-primary">Import User from File</button>
+        </form>
+        <br>
+        <a href="{{ url_for('admin_dashboard') }}">Back to Admin Dashboard</a>
+    </div>
+</body>
+</html>
