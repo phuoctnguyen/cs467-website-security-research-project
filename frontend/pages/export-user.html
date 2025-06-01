@@ -30,7 +30,6 @@
             <form method="POST" action="{{ url_for('admin_export_user_page') }}">
 
                 <div class="mb-3">
-                    <label for="export_user_id">User:</label><br>
                     <select name="export_user_id" id="export_user_id" class="form-control" required>
                         <option value="" disabled selected>-- Select a User --</option>
                         {% for user_item in users_for_dropdown %}
