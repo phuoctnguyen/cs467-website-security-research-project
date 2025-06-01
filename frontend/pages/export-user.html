@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Export User</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <p class="banner">This site is for cybersecurity testing purposes. <br> Current Mode: <strong>{{ mode | capitalize }}</strong> </p>
+        <h1>Capstone Bank - Admin Portal</h1>
+        <h2>{{ admin.name }}'s Session: Export Existing User</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message_text in messages %}
+                    <div class="alert alert-{{ category or 'info' }}">{{ message_text }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if message and not get_flashed_messages() and request.method == 'GET' %}
+            <div class="alert alert-info">{{ message }}</div>
+        {% endif %}
+
+        <hr>
+        <h3>Select User to Export</h3>
+        {% if users_for_dropdown and users_for_dropdown|length > 0 %}
+            <form method="POST" action="{{ url_for('admin_export_user_page') }}">
+
+                <div class="mb-3">
+                    <select name="export_user_id" id="export_user_id" class="form-control" required>
+                        <option value="" disabled selected>-- Select a User --</option>
+                        {% for user_item in users_for_dropdown %}
+                            <option value="{{ user_item._id }}">{{ user_item.name }} (ID: {{ user_item._id }}, Role: {{ user_item.role }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <br>
+                <p>
+                    {% if mode == 'secure' %}
+                        The selected user will be exported as a secure JSON file.
+                    {% else %}
+                        The selected user will be exported as a Pickle .dat file.
+                    {% endif %}
+                </p>
+                
+                <button type="submit" name="action" value="export_selected_user" class="btn btn-primary">Export Selected User</button>
+            </form>
+        {% else %}
+            <p>No users available to export.</p>
+        {% endif %}
+        
+        <br>
+        <a href="{{ url_for('admin_dashboard') }}">Back to Admin Dashboard</a>
+    </div>
+</body>
+</html>

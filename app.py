@@ -1,4 +1,4 @@
-from flask import abort, flash, Flask, redirect, render_template, request, session, url_for, make_response, Response
+from flask import abort, flash, Flask, redirect, render_template, request, session, url_for, make_response, Response, send_file
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect      # CSRF Protection
@@ -11,6 +11,8 @@ import hashlib  # Password Hashing
 import json
 import time
 import re
+import io
+import pickle
 from markupsafe import Markup
 from PIL import Image, ImageFile, UnidentifiedImageError
 from werkzeug.utils import secure_filename
@@ -692,6 +694,260 @@ def account_activity():
         activities=activities,
         query=safe_query,
     )
+
+
+@app.route('/export-user', methods=['GET', 'POST'])
+def admin_export_user_page():
+    adminname = session.get('username')
+
+    if not adminname:
+        flash("Please log in first.", "warning")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    if not admin or admin.role != 'admin':
+        flash("Admin access required.", "danger")
+        return redirect(url_for('dashboard')) 
+
+    secure_mode = session.get('secure_mode', False)
+    current_mode_string = "secure" if secure_mode else "vulnerable"
+    
+    message = ""
+
+    if request.method == 'POST':
+        if request.form.get('action') == 'export_selected_user':
+            user_id_to_export_str = request.form.get('export_user_id')
+
+            if not user_id_to_export_str:
+                message = "No user selected for export. Please select a user from the dropdown."
+
+            else:
+                try:
+                    user_id_to_export = int(user_id_to_export_str)
+                    user_to_export = User.query.filter_by(_id=user_id_to_export, role='user').first() 
+
+                    if not user_to_export:
+                        message = f"User with ID {user_id_to_export} not found or cannot be exported."
+                    else:
+                        format_type = 'json' if secure_mode else 'pickle'
+                        
+                        return redirect(url_for('admin_export_user_file', 
+                                                user_id=user_id_to_export, 
+                                                format_type=format_type))
+                except ValueError:
+                    message = "Invalid user ID format selected."
+                except Exception as e:
+                    message = f"An error occurred during export preparation: {str(e)}"
+                    print(f"Export Prep Error: {str(e)}") 
+
+        else:
+            message = "Invalid export action."
+
+    users_for_dropdown = User.query.filter_by(role='user').all() 
+
+    return render_template('export-user.html',
+                           mode=current_mode_string, 
+                           admin=admin,
+                           users_for_dropdown=users_for_dropdown,
+                           message=message)
+
+
+@app.route('/admin/export_user_file/<int:user_id>/<string:format_type>')
+def admin_export_user_file(user_id, format_type):
+    adminname = session.get('username')
+
+    if not adminname:
+        flash("Please log in first to download files.", "warning")
+        return redirect(url_for('login')) 
+
+    admin = User.query.filter_by(name=adminname).first()
+    if not admin or admin.role != 'admin':
+        flash("Admin access required to download user files.", "danger")
+        return redirect(url_for('admin_export_user_page'))
+
+    user_to_export = User.query.filter_by(_id=user_id, role='user').first()
+    if not user_to_export:
+        user_to_export = User.query.get(user_id) 
+        if not user_to_export or (user_to_export.role != 'user' and format_type != 'pickle_admin_special_case'): 
+            flash("User not found or cannot be exported with this role.", "danger")
+            return redirect(url_for('admin_export_user_page'))
+
+    filename_base = "".join(c if c.isalnum() else "_" for c in user_to_export.name)
+
+    if format_type == 'pickle':
+        try:
+            pickled_data = pickle.dumps(user_to_export)
+            filename = f"{filename_base}_export.dat"
+            
+            return send_file(
+                io.BytesIO(pickled_data),
+                mimetype='application/octet-stream',
+                as_attachment=True,
+                download_name=filename
+            )
+        except Exception as e:
+            flash(f"Error exporting user as pickle: {str(e)}", "danger")
+            print(f"[PICKLE_EXPORT_ERROR] In admin_export_user_file: {type(e).__name__}: {str(e)}")
+            return redirect(url_for('admin_export_user_page'))
+
+    elif format_type == 'json':
+        try:
+            user_data_dict = {
+                "role": user_to_export.role,
+                "name": user_to_export.name,
+                "email": user_to_export.email,
+                "pwd_hash_bcrypt": user_to_export.pwd_hash_bcrypt 
+            }
+            json_data_string = json.dumps(user_data_dict, indent=4)
+            filename = f"{filename_base}_export.json"
+            
+            return send_file(
+                io.BytesIO(json_data_string.encode('utf-8')),
+                mimetype='application/json',
+                as_attachment=True,
+                download_name=filename
+            )
+        except Exception as e:
+            flash(f"Error exporting user as JSON: {str(e)}", "danger")
+            print(f"[JSON_EXPORT_ERROR] In admin_export_user_file: {type(e).__name__}: {str(e)}")
+            return redirect(url_for('admin_export_user_page'))
+    
+    else:
+        flash("Invalid export format specified for download.", "danger")
+        return redirect(url_for('admin_export_user_page'))
+    
+
+@app.route('/import-user', methods=['GET', 'POST'])
+def admin_import_user_page():
+    adminname = session.get('username')
+    
+    if not adminname:
+        flash("Please log in first.", "warning")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    if not admin or admin.role != 'admin':
+        flash("Admin access required.", "danger")
+        return redirect(url_for('dashboard'))
+
+    secure_mode = session.get('secure_mode', False)
+    current_mode_string = "secure" if secure_mode else "vulnerable"
+    page_message_get = "Upload a file to create a new user." 
+
+    if request.method == 'POST':
+        if 'user_file' not in request.files:
+            flash('No file part in request.', 'danger')
+            return redirect(url_for('admin_import_user_page'))
+
+        file = request.files['user_file']
+        if file.filename == '':
+            flash('No file selected.', 'danger')
+            return redirect(url_for('admin_import_user_page'))
+
+        if file:
+            try:
+                file_content = file.read()
+
+                if not secure_mode:
+                    try:
+                        deserialized_object = pickle.loads(file_content)
+                        
+                        if isinstance(deserialized_object, User):
+                            existing_user_check = User.query.filter_by(name=deserialized_object.name).first()
+                            if existing_user_check:
+                                flash(f"Vulnerable Mode: User '{deserialized_object.name}' already exists. Import failed.", "danger")
+                            else:
+                                imported_user = User(
+                                    role=deserialized_object.role,
+                                    name=deserialized_object.name,
+                                    password=deserialized_object.password, 
+                                    email=deserialized_object.email,
+                                    checking=deserialized_object.checking if hasattr(deserialized_object, 'checking') else DEFAULT_CHECKING,
+                                    savings=deserialized_object.savings if hasattr(deserialized_object, 'savings') else DEFAULT_SAVINGS
+                                )
+                                
+                                db.session.add(imported_user)
+                                db.session.commit()
+                                flash(f"Vulnerable Mode: User '{imported_user.name}' (New ID: {imported_user._id}) imported successfully from pickle.", "success")
+                        
+                        elif isinstance(deserialized_object, str): 
+                            flash(f"Vulnerable Mode: File processed. Payload result: {deserialized_object}", "warning")
+                        
+                        else: 
+                            flash(f"Vulnerable Mode: File processed. Deserialized a non-User, non-payload object of type {type(deserialized_object).__name__}. Not added to database.", "info")
+
+                    except RuntimeError as rterr: 
+                        flash(f"Vulnerable Mode: Payload execution error: {str(rterr)}", "danger")
+                        print(f"[PICKLE_PAYLOAD_RUNTIME_ERROR] {str(rterr)}")
+                    except Exception as e:
+                        db.session.rollback() 
+                        flash(f"Vulnerable Mode: Error deserializing or processing pickled object: {type(e).__name__} - {str(e)}", "danger")
+                        print(f"[PICKLE_ERROR_VULN_IMPORT_PROCESSING] {type(e).__name__}: {str(e)}")
+                
+                else: # Secure mode
+                    try:
+                        if not file.filename.lower().endswith('.json'):
+                            flash("Secure Mode: Invalid file type. Please upload a .json file as per instructions.", "danger")
+                            return redirect(url_for('admin_import_user_page')) 
+                            
+                        user_data_dict = json.loads(file_content.decode('utf-8'))
+
+                        required_fields = ['role', 'name', 'email', 'pwd_hash_bcrypt']
+                        missing_fields = [field for field in required_fields if field not in user_data_dict]
+                        if missing_fields:
+                            raise ValueError(f"Missing required fields in JSON: {', '.join(missing_fields)}")
+
+                        if not all(isinstance(user_data_dict.get(f), str) for f in required_fields):
+                            raise ValueError("Invalid data types for user fields. Role, name, email, and pwd_hash_bcrypt should be strings.")
+                        
+                        if not (3 <= len(user_data_dict['name']) <= 100): 
+                            raise ValueError("Username length is invalid.")
+
+                        existing_user = User.query.filter_by(name=user_data_dict['name']).first()
+                        if existing_user:
+                             raise ValueError(f"User '{user_data_dict['name']}' already exists. Cannot import.")
+
+                        temp_dummy_password = "SECURE_JSON_IMPORT_DUMMY_PASSWORD_12345!@#$%" # Just a work around for User.__init__
+
+                        new_user = User(
+                            role=user_data_dict['role'],
+                            name=user_data_dict['name'],
+                            password=temp_dummy_password, 
+                            email=user_data_dict['email'],
+                            checking=0.0,
+                            savings=0.0
+                        )
+                        
+                        new_user.pwd_hash_bcrypt = user_data_dict['pwd_hash_bcrypt']
+                        new_user.password = None 
+                        new_user.pwd_hash_md5_unsalted = None
+                        new_user.pwd_hash_md5_salted = None
+                        new_user.md5_salt = None
+
+                        db.session.add(new_user)
+                        db.session.commit()
+                        flash(f"Secure Mode: User '{new_user.name}' created successfully from JSON.", "success")
+
+                    except json.JSONDecodeError:
+                        flash("Secure Mode: Invalid JSON format in uploaded file. Please check the content.", "danger")
+                    except UnicodeDecodeError:
+                        flash("Secure Mode: File must be UTF-8 encoded JSON.", "danger")
+                    except ValueError as ve: 
+                        flash(f"Secure Mode: Invalid data in JSON - {str(ve)}", "danger")
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f"Secure Mode: Error processing JSON data: {type(e).__name__} - {str(e)}", "danger")
+                        print(f"[JSON_ERROR_SECURE_IMPORT_WORKAROUND] {type(e).__name__}: {str(e)}")
+            
+            except Exception as e: 
+                flash(f"Error reading uploaded file: {str(e)}", "danger")
+        
+        return redirect(url_for('admin_import_user_page'))
+
+    return render_template('import-user.html', 
+                           mode=current_mode_string, 
+                           admin=admin,
+                           message=page_message_get)
 
 
 @app.route("/logout")
