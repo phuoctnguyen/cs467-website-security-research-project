@@ -144,12 +144,10 @@ def login():
                 LOGIN_ATTEMPTS[ip] = []
 
             # This gets rid of timestamps outside our WINDOW_SECONDS
-            valid = []
-            for timestamp in LOGIN_ATTEMPTS[ip]:
-                if now - timestamp < WINDOW_SECONDS:
-                    valid.append(timestamp)
-            LOGIN_ATTEMPTS[ip] = valid
+            valid = [t for t in LOGIN_ATTEMPTS[ip] if now - t < WINDOW_SECONDS]
+            LOGIN_ATTEMPTS[ip] = valid 
 
+            LOGIN_ATTEMPTS[ip].append(now)
             if len(LOGIN_ATTEMPTS[ip]) >= MAX_ATTEMPTS:
                 return make_response("Too many requests", 429)
 
@@ -168,8 +166,6 @@ def login():
         if user:
 
             if secure_mode:
-                LOGIN_ATTEMPTS[ip] = []
-
                 # check password hashes match
                 # code adapted from:
                 # https://geekpython.medium.com/easy-password-hashing-using-bcrypt-in-python-3a706a26e4bf
@@ -180,6 +176,8 @@ def login():
                     flash("Invalid username or password.")
                     print("Invalid username or password (hash doesn't match).")
                     return render_template('login.html')
+                
+                LOGIN_ATTEMPTS[ip] = []
 
             session['username'] = user.name
             session['secure_mode'] = secure_mode
