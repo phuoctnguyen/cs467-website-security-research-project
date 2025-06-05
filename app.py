@@ -143,8 +143,6 @@ def login():
         password = request.form['password']
         secure_mode = request.form.get('secure') == 'true'
 
-        app.logger.info(f"Login attempt by user: {username} in {'secure' if secure_mode else 'vulnerable'} mode from IP: {request.remote_addr}")
-
         if secure_mode:
 
             # This is a note for my project partners and "future me":
@@ -169,6 +167,7 @@ def login():
                 return make_response("Too many requests", 429)
 
             user = User.query.filter_by(name=username).first()  # get user with matching username from DB
+            app.logger.info(f"Login attempt by user: {username} in secure mode from IP: {request.remote_addr}")
 
         else:
             # Vulnerable version
@@ -181,7 +180,9 @@ def login():
                 user = User.query.filter_by(_id=user_id).first()
 
         if user:
-            app.logger.info(f"Successful login for user: {username} (Role: {user.role}) from IP: {request.remote_addr}")
+            if secure_mode:
+                app.logger.info(f"Successful login for user: {username} (Role: {user.role}) from IP: {request.remote_addr}")
+
 
             if secure_mode:
                 LOGIN_ATTEMPTS[ip] = []
@@ -207,8 +208,8 @@ def login():
 
             if secure_mode:
                 LOGIN_ATTEMPTS[ip].append(now)
+                app.logger.warning(f"Failed login for user: {username} from IP: {request.remote_addr}")
 
-            app.logger.warning(f"Failed login for user: {username} from IP: {request.remote_addr}")
             flash(f"Invalid username or password ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
             return render_template('login.html')
 
@@ -231,8 +232,6 @@ def register():
         secure_mode = request.form.get('secure') == 'true'
         session['secure_mode'] = secure_mode  # Store this to persist for flash logic
 
-        app.logger.info(f"New registration attempt for username: {username} in {'secure' if secure_mode else 'vulnerable'} mode")
-
         if secure_mode:
             if password != confirm_password:
                 flash("Passwords do not match.")
@@ -242,6 +241,8 @@ def register():
                 flash("Password must be at least 8 characters long "
                       "and include uppercase, lowercase, digits, and special characters.")
                 return redirect(url_for('register'))
+            
+            app.logger.info(f"New registration attempt for username: {username} in {'secure' if secure_mode else 'vulnerable'} mode")
 
         existing_user = User.query.filter_by(name=username).first()
         if existing_user:
