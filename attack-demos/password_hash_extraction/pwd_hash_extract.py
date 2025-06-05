@@ -6,7 +6,7 @@ import requests
 import time
 from pwd_hash_extract_utils import create_rainbow_table, time_str
 
-TARGET_URL = "http://localhost:5000/users.js"
+TARGET_URL = "http://127.0.0.1:5000/users.js"
 
 print("\nChoose a hashing algorithm and an attack to demonstrate password extraction:"
       "\n1: MD5 (unsalted) with rainbow table attack"
@@ -32,8 +32,16 @@ else:
 exposedUserData_raw = requests.get(TARGET_URL + f"?pwd_choice={hash_type}")
 exposedUserData_raw_str = exposedUserData_raw.text  # get text from response
 
+
 # extract the list as a string so it can be jason-parsed
 exposedUserData_str = exposedUserData_raw_str[exposedUserData_raw_str.find("["):exposedUserData_raw_str.find("]")+1]
+
+# check exposedUserData_str is JSON array
+if not exposedUserData_str.strip().startswith("["):
+    print("\nFailed to extract JSON data from response.")
+    print("\nRaw response:", exposedUserData_raw_str)
+    exit(1)
+
 exposedUserData = json.loads(exposedUserData_str)   # parse json & return a dict
 
 exposed_hashes_set = {user["password"] if option != '3' else user["password"].encode() for user in exposedUserData}
