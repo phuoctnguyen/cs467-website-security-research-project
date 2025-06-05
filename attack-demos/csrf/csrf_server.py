@@ -9,7 +9,7 @@ import sys
 
 def start_http_server(port=8080):
     """Start a simple HTTP server using Python's built-in module as a subprocess"""
-    print(f"Starting server at http://localhost:{port}/")
+    print(f"Starting server at http://127.0.0.1:{port}/")
     try:
         # This runs the Python module as a separate process
         subprocess.run([sys.executable, "-m", "http.server", str(port)])

@@ -407,7 +407,8 @@ def transfer():
             print("Likely CSRF Attack intercepted.")
 
         # only send FlaskForm if in secure mode
-        return render_template("transfer.html", user=user, mode=mode, message=message, transfer_form=transfer_form)
+        return render_template("transfer.html", user=user, mode=mode, message=message,
+                               transfer_form=transfer_form, secure_mode=True)
 
     # vulnerable mode
     if request.method == "POST":
