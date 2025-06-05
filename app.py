@@ -16,6 +16,8 @@ import pickle
 from markupsafe import Markup
 from PIL import Image, ImageFile, UnidentifiedImageError
 from werkzeug.utils import secure_filename
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Brute Force Mitigation Variables
 LOGIN_ATTEMPTS = {}
@@ -26,6 +28,17 @@ app = Flask(__name__,
             template_folder='frontend/pages',
             static_folder='frontend')
 app.secret_key = '467'
+
+LOG_FILE = 'logs/app.log'
+os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+
+# Rotating handler: 1MB per file, keep 5 backups
+handler = RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=5)
+formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+handler.setFormatter(formatter)
+
+app.logger.setLevel(logging.INFO)
+app.logger.addHandler(handler)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.sqlite3'
 db = SQLAlchemy(app)
@@ -152,6 +165,7 @@ def login():
                 return make_response("Too many requests", 429)
 
             user = User.query.filter_by(name=username).first()  # get user with matching username from DB
+            app.logger.info(f"Login attempt by user: {username} in secure mode from IP: {request.remote_addr}")
 
         else:
             # Vulnerable version
@@ -164,6 +178,9 @@ def login():
                 user = User.query.filter_by(_id=user_id).first()
 
         if user:
+            if secure_mode:
+                app.logger.info(f"Successful login for user: {username} (Role: {user.role}) from IP: {request.remote_addr}")
+
 
             if secure_mode:
                 # check password hashes match
@@ -189,6 +206,7 @@ def login():
 
             if secure_mode:
                 LOGIN_ATTEMPTS[ip].append(now)
+                app.logger.warning(f"Failed login for user: {username} from IP: {request.remote_addr}")
 
             flash(f"Invalid username or password ({'Secure' if secure_mode else 'Vulnerable'} Mode)")
             return render_template('login.html')
@@ -221,6 +239,8 @@ def register():
                 flash("Password must be at least 8 characters long "
                       "and include uppercase, lowercase, digits, and special characters.")
                 return redirect(url_for('register'))
+            
+            app.logger.info(f"New registration attempt for username: {username} in {'secure' if secure_mode else 'vulnerable'} mode")
 
         existing_user = User.query.filter_by(name=username).first()
         if existing_user:
@@ -455,6 +475,29 @@ def admin_dashboard():
     mode = "secure" if secure_mode else "vulnerable"
 
     return render_template('admin-dashboard.html', mode=mode, admin=admin)
+
+@app.route("/admin/logs")
+def admin_logs():
+    adminname = session.get('username')
+    if not adminname:
+        flash("Please log in first.")
+        return redirect(url_for('login'))
+
+    admin = User.query.filter_by(name=adminname).first()
+    if not admin or admin.role != "admin":
+        app.logger.warning(f"Unauthorized log viewer access attempt by '{adminname}'")
+        abort(403)
+
+    log_path = 'logs/app.log'
+    log_lines = []
+
+    try:
+        with open(log_path, 'r') as f:
+            log_lines = f.readlines()[-100:]  # show last 100 lines
+    except Exception as e:
+        log_lines = [f"[ERROR] Unable to read log file: {str(e)}"]
+
+    return render_template("admin-logs.html", logs=log_lines, mode="secure" if session.get('secure_mode') else "vulnerable")
 
 
 @app.route('/list-users')
